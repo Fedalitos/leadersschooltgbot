@@ -6,8 +6,9 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.filters import Command
 
-from data.db import update_application_status, update_question_status
+from data.db import update_application_status, update_question_status, get_statistics, get_user_count
 from data.languages import user_languages
 from data.admins import is_admin
 
@@ -163,3 +164,128 @@ async def process_admin_answer(message: Message, state: FSMContext):
             await message.answer(f"❌ Ошибка отправки: {e}")
         
         await state.clear()
+        
+
+
+# ... существующий код ...
+
+# Тексты для статистики
+stats_texts = {
+    "ru": {
+        "title": "📊 <b>СТАТИСТИКА БОТА</b>\n\n",
+        "users": "👥 <b>Пользователи:</b>\n"
+                "• Всего пользователей: {total_users}\n"
+                "• Подали заявки: {applications_users}\n"
+                "• Задали вопросы: {questions_users}\n\n",
+        "applications": "📝 <b>Заявки:</b>\n"
+                       "• Всего заявок: {total_applications}\n"
+                       "• Ожидают: {pending_applications}\n"
+                       "• Одобрены: {approved_applications}\n"
+                       "• Отклонены: {rejected_applications}\n\n",
+        "questions": "❓ <b>Вопросы:</b>\n"
+                    "• Всего вопросов: {total_questions}\n"
+                    "• Ожидают ответа: {pending_questions}\n"
+                    "• Ответили: {answered_questions}\n\n",
+        "recent": "📈 <b>Активность за 7 дней:</b>\n"
+                 "• Заявок: {app_last_7_days}\n"
+                 "• Вопросов: {quest_last_7_days}\n\n",
+        "popular": "🎯 <b>Популярные курсы:</b>\n{popular_courses}",
+        "not_admin": "⛔ <b>У вас нет прав администратора!</b>"
+    },
+    "uz": {
+        "title": "📊 <b>BOT STATISTIKASI</b>\n\n",
+        "users": "👥 <b>Foydalanuvchilar:</b>\n"
+                "• Jami foydalanuvchilar: {total_users}\n"
+                "• Ariza yuborganlar: {applications_users}\n"
+                "• Savol berganlar: {questions_users}\n\n",
+        "applications": "📝 <b>Arizalar:</b>\n"
+                       "• Jami arizalar: {total_applications}\n"
+                       "• Kutayotgan: {pending_applications}\n"
+                       "• Qabul qilingan: {approved_applications}\n"
+                       "• Rad etilgan: {rejected_applications}\n\n",
+        "questions": "❓ <b>Savollar:</b>\n"
+                    "• Jami savollar: {total_questions}\n"
+                    "• Javob kutayotgan: {pending_questions}\n"
+                    "• Javob berilgan: {answered_questions}\n\n",
+        "recent": "📈 <b>7 kunlik faollik:</b>\n"
+                 "• Arizalar: {app_last_7_days}\n"
+                 "• Savollar: {quest_last_7_days}\n\n",
+        "popular": "🎯 <b>Mashhur kurslar:</b>\n{popular_courses}",
+        "not_admin": "⛔ <b>Sizda administrator huquqlari yo'q!</b>"
+    },
+    "en": {
+        "title": "📊 <b>BOT STATISTICS</b>\n\n",
+        "users": "👥 <b>Users:</b>\n"
+                "• Total users: {total_users}\n"
+                "• Applied: {applications_users}\n"
+                "• Asked questions: {questions_users}\n\n",
+        "applications": "📝 <b>Applications:</b>\n"
+                       "• Total applications: {total_applications}\n"
+                       "• Pending: {pending_applications}\n"
+                       "• Approved: {approved_applications}\n"
+                       "• Rejected: {rejected_applications}\n\n",
+        "questions": "❓ <b>Questions:</b>\n"
+                    "• Total questions: {total_questions}\n"
+                    "• Waiting: {pending_questions}\n"
+                    "• Answered: {answered_questions}\n\n",
+        "recent": "📈 <b>Activity last 7 days:</b>\n"
+                 "• Applications: {app_last_7_days}\n"
+                 "• Questions: {quest_last_7_days}\n\n",
+        "popular": "🎯 <b>Popular courses:</b>\n{popular_courses}",
+        "not_admin": "⛔ <b>You don't have administrator rights!</b>"
+    }
+}
+
+# ==============================
+# 🔘 Команда /stats
+# ==============================
+@router.message(Command("stats"))
+async def stats_command(message: Message):
+    """Показать статистику бота"""
+    # Проверяем права администратора
+    if not is_admin(message.from_user.id):
+        lang = user_languages.get(message.from_user.id, "uz")
+        await message.answer(stats_texts[lang]["not_admin"])
+        return
+    
+    # Получаем статистику
+    stats = get_statistics()
+    users_stats = get_user_count()
+    lang = user_languages.get(message.from_user.id, "ru")
+    
+    # Форматируем популярные курсы
+    popular_courses = ""
+    for course, count in stats['popular_courses']:
+        popular_courses += f"• {course}: {count}\n"
+    
+    # Считаем заявки и вопросы за 7 дней
+    app_last_7_days = sum(count for _, count in stats['applications_last_7_days'])
+    quest_last_7_days = sum(count for _, count in stats['questions_last_7_days'])
+    
+    # Формируем текст статистики
+    text = (
+        stats_texts[lang]["title"] +
+        stats_texts[lang]["users"].format(
+            total_users=users_stats['total_users'],
+            applications_users=users_stats['applications_users'],
+            questions_users=users_stats['questions_users']
+        ) +
+        stats_texts[lang]["applications"].format(
+            total_applications=stats['total_applications'],
+            pending_applications=stats['pending_applications'],
+            approved_applications=stats['approved_applications'],
+            rejected_applications=stats['rejected_applications']
+        ) +
+        stats_texts[lang]["questions"].format(
+            total_questions=stats['total_questions'],
+            pending_questions=stats['pending_questions'],
+            answered_questions=stats['answered_questions']
+        ) +
+        stats_texts[lang]["recent"].format(
+            app_last_7_days=app_last_7_days,
+            quest_last_7_days=quest_last_7_days
+        ) +
+        stats_texts[lang]["popular"].format(popular_courses=popular_courses)
+    )
+    
+    await message.answer(text)

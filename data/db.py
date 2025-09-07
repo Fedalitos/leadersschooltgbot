@@ -159,3 +159,100 @@ def get_question(question_id: int):
     
     conn.close()
     return question
+
+# ============================================
+# 🔹 data/db.py — добавим функции для статистики
+# ============================================
+
+# ... существующий код ...
+
+# Функции для статистики
+def get_statistics():
+    """Получить полную статистику бота"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    stats = {}
+    
+    # Статистика заявок
+    cursor.execute('SELECT COUNT(*) FROM applications')
+    stats['total_applications'] = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM applications WHERE status = "kutilmoqda"')
+    stats['pending_applications'] = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM applications WHERE status = "qabul qilindi"')
+    stats['approved_applications'] = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM applications WHERE status = "rad etildi"')
+    stats['rejected_applications'] = cursor.fetchone()[0]
+    
+    # Статистика вопросов
+    cursor.execute('SELECT COUNT(*) FROM questions')
+    stats['total_questions'] = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM questions WHERE status = "waiting"')
+    stats['pending_questions'] = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM questions WHERE status = "answered"')
+    stats['answered_questions'] = cursor.fetchone()[0]
+    
+    # Статистика по дням (последние 7 дней)
+    cursor.execute('''
+    SELECT DATE(created_at) as date, COUNT(*) as count 
+    FROM applications 
+    WHERE created_at >= date('now', '-7 days')
+    GROUP BY DATE(created_at)
+    ORDER BY date DESC
+    ''')
+    stats['applications_last_7_days'] = cursor.fetchall()
+    
+    cursor.execute('''
+    SELECT DATE(created_at) as date, COUNT(*) as count 
+    FROM questions 
+    WHERE created_at >= date('now', '-7 days')
+    GROUP BY DATE(created_at)
+    ORDER BY date DESC
+    ''')
+    stats['questions_last_7_days'] = cursor.fetchall()
+    
+    # Популярные курсы
+    cursor.execute('''
+    SELECT course, COUNT(*) as count 
+    FROM applications 
+    GROUP BY course 
+    ORDER BY count DESC 
+    LIMIT 5
+    ''')
+    stats['popular_courses'] = cursor.fetchall()
+    
+    conn.close()
+    return stats
+
+def get_user_count():
+    """Получить количество уникальных пользователей"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(DISTINCT user_id) FROM applications')
+    applications_users = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(DISTINCT user_id) FROM questions')
+    questions_users = cursor.fetchone()[0]
+    
+    # Объединяем пользователей из обеих таблиц
+    cursor.execute('''
+    SELECT COUNT(DISTINCT user_id) FROM (
+        SELECT user_id FROM applications 
+        UNION 
+        SELECT user_id FROM questions
+    )
+    ''')
+    total_users = cursor.fetchone()[0]
+    
+    conn.close()
+    return {
+        'total_users': total_users,
+        'applications_users': applications_users,
+        'questions_users': questions_users
+    }

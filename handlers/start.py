@@ -7,6 +7,7 @@ from aiogram.filters import CommandStart, Command
 from keyboards.language_menu import language_menu
 from keyboards.main_menu import main_menu
 from data.languages import user_languages
+from data.admins import is_admin  # Добавляем импорт
 
 # ==============================
 # 📌 Router for start logic
@@ -60,3 +61,19 @@ async def language_callback(call: types.CallbackQuery):
     # Asosiy menyuni tanlangan tilda ko'rsatish
     await call.message.answer(greetings[lang], reply_markup=main_menu(lang))
     await call.answer()
+    
+# 🔘 Команда /stats (только для админов)
+# ==============================
+@router.message(Command("stats"))
+async def stats_command(message: types.Message):
+    """Показать статистику бота (только для админов)"""
+    if not is_admin(message.from_user.id):
+        lang = user_languages.get(message.from_user.id, "uz")
+        await message.answer("⛔ <b>Sizda administrator huquqlari yo'q!</b>" if lang == "uz" else 
+                            "⛔ <b>У вас нет прав администратора!</b>" if lang == "ru" else 
+                            "⛔ <b>You don't have administrator rights!</b>")
+        return
+    
+    # Перенаправляем на обработчик в admin.py
+    from handlers.admin import stats_command as admin_stats
+    await admin_stats(message)
