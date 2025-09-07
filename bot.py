@@ -53,7 +53,6 @@ async def main():
     dp.include_router(register_router)
     dp.include_router(reviews_router)
     dp.include_router(contacts_router)
-    dp.include_router(admin_router)
     dp.include_router(language_router)
 
     # 🔹 Инициализация БД

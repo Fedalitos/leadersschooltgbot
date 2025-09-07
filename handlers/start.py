@@ -38,18 +38,7 @@ async def language_command(message: types.Message):
 
 # ==============================
 # 🔘 Til tanlash tugmalarini qayta ishlash
-# ==============================
-@router.callback_query(lambda c: c.data.startswith("lang_"))
-async def language_callback(call: types.CallbackQuery):
-    """
-    Til tugmalarini bosilganda asosiy menyuni tanlangan tilda ko'rsatadi
-    """
-    user_id = call.from_user.id
-    data = call.data
-    lang = data.split("_")[1]  # ru, uz, en
-    
-    # Tilni saqlash
-    user_languages[user_id] = lang
+# ============================
 
     # Salomlashish matnlari
     greetings = {
