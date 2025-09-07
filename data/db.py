@@ -1,5 +1,5 @@
 # ============================================
-# 🔹 data/db.py — arizalar uchun ma'lumotlar bazasi
+# 🔹 data/db.py — arizalar va savollar uchun ma'lumotlar bazasi
 # ============================================
 
 import sqlite3
@@ -12,6 +12,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    # Таблица заявок
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS applications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +28,20 @@ def init_db():
     )
     ''')
     
+    # Таблица вопросов
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        question_text TEXT NOT NULL,
+        lang TEXT NOT NULL,
+        status TEXT DEFAULT 'waiting',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        admin_id INTEGER,
+        answer_text TEXT
+    )
+    ''')
+    
     conn.commit()
     conn.close()
     print("✅ Ma'lumotlar bazasi ishga tushirildi")
@@ -35,6 +50,7 @@ def get_connection():
     """Baza bilan bog'lanishni olish"""
     return sqlite3.connect(DB_PATH)
 
+# Функции для заявок
 def save_application(user_id: int, full_name: str, course: str, phone: str, lang: str) -> int:
     """Yangi arizani bazaga saqlash"""
     conn = get_connection()
@@ -99,3 +115,47 @@ def get_user_applications(user_id: int):
     
     conn.close()
     return applications
+
+# Функции для вопросов
+def save_question(user_id: int, question_text: str, lang: str) -> int:
+    """Savolni bazaga saqlash"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    INSERT INTO questions (user_id, question_text, lang, status)
+    VALUES (?, ?, ?, 'waiting')
+    ''', (user_id, question_text, lang))
+    
+    question_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Savol saqlandi: ID {question_id}")
+    return question_id
+
+def update_question_status(question_id: int, status: str, admin_id: int = None, answer_text: str = None):
+    """Savol statusini yangilash"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    UPDATE questions 
+    SET status = ?, admin_id = ?, answer_text = ?
+    WHERE id = ?
+    ''', (status, admin_id, answer_text, question_id))
+    
+    conn.commit()
+    conn.close()
+    print(f"✅ Savol statusi yangilandi: ID {question_id} -> {status}")
+
+def get_question(question_id: int):
+    """Savol ma'lumotlarini olish"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM questions WHERE id = ?', (question_id,))
+    question = cursor.fetchone()
+    
+    conn.close()
+    return question

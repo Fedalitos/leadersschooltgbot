@@ -25,20 +25,17 @@ async def contacts_handler(call: CallbackQuery):
 
     texts = {
         "ru": "📞 <b>Контакты Учебного Центра:</b>\n\n"
-              "📧 Email: info@school.com\n"
-              "📱 Телефон: +998 90 123 45 67\n"
-              "🌐 Сайт: www.school.com\n"
-              "📍 Адрес: г. Ташкент, ул. Университетская, 10",
-        "uz": "📞 <b>O‘quv Markazi Kontaktlari:</b>\n\n"
-              "📧 Email: info@school.com\n"
-              "📱 Telefon: +998 90 123 45 67\n"
-              "🌐 Sayt: www.school.com\n"
-              "📍 Manzil: Toshkent sh., Universitet ko‘chasi, 10",
+              "📧 Email: leadersschool0101@gmail.com\n"
+              "📱 Телефон: +998 94 452 45 52\n"
+              "📍 Адрес: г. Корасув, вокруг Хокимията",
+        "uz": "📞 <b>O'quv Markazi Kontaktlari:</b>\n\n"
+              "📧 Email: leadersschool0101@gmail.com\n"
+              "📱 Telefon: +998 94 452 45 52\n"
+              "📍 Manzil: Qorasuv sh., Hokimiyati atrofi",
         "en": "📞 <b>Learning Center Contacts:</b>\n\n"
-              "📧 Email: info@school.com\n"
-              "📱 Phone: +998 90 123 45 67\n"
-              "🌐 Website: www.school.com\n"
-              "📍 Address: Tashkent, Universitetskaya St., 10"
+              "📧 Email: leadersschool0101@gmail.com\n"
+              "📱 Phone: +998 94 452 45 52\n"
+              "📍 Address: Qorasuv city, around the Hokimiyat"
     }
 
     # Отправляем сообщение с текстом и главное меню

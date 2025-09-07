@@ -28,25 +28,26 @@ class RegistrationStates(StatesGroup):
 init_db()
 
 # Matnlar turli tillarda
+# Matnlar turli tillarda
 registration_texts = {
     "ru": {
         "start": "📝 <b>Запись на курсы:</b>\n\nПожалуйста, отправьте ваше ФИО:",
         "full_name_example": "Пример: Иван Иванов",
-        "course": "🎓 <b>Выберите курс:</b>\n\nPython, Веб-разработка, Робототехника, Английский язык, Математика",
+        "course": "🎓 <b>Выберите курс:</b>\n\nАнглийский язык, Русский язык, Математика, IT, Биология, SAT Подготовка",
         "phone": "📱 <b>Отправьте ваш номер телефона:</b>\n\nПример: +998901234567",
         "success": "✅ <b>Ваша заявка отправлена!</b>\n\nАдминистратор свяжется с вами в ближайшее время.\nНомер заявки: #{}\n\n📞 Для связи: {}"
     },
     "uz": {
         "start": "📝 <b>Kurslarga ro'yxatdan o'tish:</b>\n\nIltimos, ismingizni yuboring:",
         "full_name_example": "Namuna: Alisher Navoiy",
-        "course": "🎓 <b>Kursni tanlang:</b>\n\nPython, Veb-dasturlash, Robototexnika, Ingliz tili, Matematika",
+        "course": "🎓 <b>Kursni tanlang:</b>\n\nIngliz tili, Rus tili, Matematika, IT, Biologiya, SAT Tayyorgarlik",
         "phone": "📱 <b>Telefon raqamingizni yuboring:</b>\n\nNamuna: +998901234567",
         "success": "✅ <b>Arizangiz yuborildi!</b>\n\nAdministrator tez orada siz bilan bog'lanadi.\nAriza raqami: #{}\n\n📞 Bog'lanish uchun: {}"
     },
     "en": {
         "start": "📝 <b>Register for courses:</b>\n\nPlease send your full name:",
         "full_name_example": "Example: John Smith",
-        "course": "🎓 <b>Choose a course:</b>\n\nPython, Web Development, Robotics, English Language, Mathematics",
+        "course": "🎓 <b>Choose a course:</b>\n\nEnglish Language, Russian Language, Mathematics, IT, Biology, SAT Preparation",
         "phone": "📱 <b>Send your phone number:</b>\n\nExample: +998901234567",
         "success": "✅ <b>Your application has been sent!</b>\n\nAn administrator will contact you shortly.\nApplication number: #{}\n\n📞 For contact: {}"
     }

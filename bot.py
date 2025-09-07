@@ -43,7 +43,9 @@ async def main():
     from handlers.contacts import router as contacts_router
     from handlers.admin import router as admin_router
     from handlers.language import router as language_router
-
+    from handlers.question import router as question_router
+    
+    dp.include_router(question_router)
     dp.include_router(start_router)
     dp.include_router(courses_router)
     dp.include_router(schedule_router)
