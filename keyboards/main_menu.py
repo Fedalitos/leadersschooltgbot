@@ -1,6 +1,7 @@
 # ============================================
 # 🔹 keyboards/main_menu.py — добавление кнопки вопроса
 # ============================================
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu(lang: str = "uz") -> InlineKeyboardMarkup:
     """
