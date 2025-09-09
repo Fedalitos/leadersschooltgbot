@@ -168,6 +168,13 @@ async def process_admin_answer(message: Message, state: FSMContext):
         await state.clear()
         
 
+@router.message(Command("myid"))
+async def get_my_id(message: Message):
+    """Показать свой ID"""
+    await message.answer(f"Ваш ID: {message.from_user.id}\n"
+                        f"Админы в системе: {ADMINS}\n"
+                        f"Вы администратор: {is_admin(message.from_user.id)}")
+
 # Тексты для статистики
 stats_texts = {
     "ru": {
