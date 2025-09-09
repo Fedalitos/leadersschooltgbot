@@ -168,12 +168,37 @@ async def process_admin_answer(message: Message, state: FSMContext):
         await state.clear()
         
 
-@router.message(Command("myid"))
-async def get_my_id(message: Message):
-    """Показать свой ID"""
-    await message.answer(f"Ваш ID: {message.from_user.id}\n"
-                        f"Админы в системе: {ADMINS}\n"
-                        f"Вы администратор: {is_admin(message.from_user.id)}")
+# admin.py - добавление функции уведомления о новых заявках
+# ==============================
+# 🔘 Уведомления администраторов о новых заявках
+# ==============================
+async def notify_admins_new_application(bot, application_id, user_info):
+    """Уведомление админов о новой заявке в группу"""
+    admin_text = f"🆕 <b>✨ НОВАЯ ЗАЯВКА НА КУРС ✨</b>\n\n" \
+                 f"👤 <b>ФИО:</b> {user_info['full_name']}\n" \
+                 f"📚 <b>Курс:</b> {user_info['course']}\n" \
+                 f"📱 <b>Телефон:</b> {user_info['phone']}\n" \
+                 f"📋 <b>Номер заявки:</b> #{application_id}"
+    
+    try:
+        # Отправляем в группу админов
+        await bot.send_message(
+            chat_id=ADMIN_GROUP_ID,
+            text=admin_text,
+            reply_markup=admin_approve_buttons(user_info['user_id'], application_id, user_info.get('username', ''))
+        )
+    except Exception as e:
+        print(f"Ошибка отправки в группу: {e}")
+        # Резервная отправка всем админам
+        for admin_id in ADMINS:
+            try:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text=admin_text,
+                    reply_markup=admin_approve_buttons(user_info['user_id'], application_id, user_info.get('username', ''))
+                )
+            except:
+                pass
 
 # Тексты для статистики
 stats_texts = {
