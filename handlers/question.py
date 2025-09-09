@@ -12,6 +12,7 @@ from keyboards.admin_buttons import admin_question_buttons
 from data.languages import user_languages
 from data.db import save_question, update_question_status
 from data.admins import ADMINS
+from handlers.admin import notify_admins_new_question
 
 ADMIN_GROUP_ID = -4931417098
 
@@ -64,11 +65,19 @@ async def process_question(message: Message, state: FSMContext):
 
     # Сохраняем вопрос в базу
     question_id = save_question(user_id, question_text, lang)
+    
+    # Уведомляем администраторов
+    user_info = {
+        'full_name': message.from_user.full_name,
+        'question_text': question_text
+    }
+    await notify_admins_new_question(message.bot, question_id, user_info)
 
     # Отправляем администраторам
     admin_text = f"❓ <b>Yangi savol</b>\n\n" \
                  f"👤 <b>Foydalanuvchi:</b> {message.from_user.full_name}\n" \
                  f"🆔 <b>ID:</b> {user_id}\n" \
+                 f"👤 <b>Username:</b> @{message.from_user.username if message.from_user.username else 'Yo\'q'}\n" \
                  f"📋 <b>Savol №:</b> {question_id}\n\n" \
                  f"💬 <b>Savol:</b>\n{question_text}"
 
@@ -76,7 +85,7 @@ async def process_question(message: Message, state: FSMContext):
         await message.bot.send_message(
             chat_id=ADMIN_GROUP_ID,
             text=admin_text,
-            reply_markup=admin_question_buttons(user_id, question_id)
+            reply_markup=admin_question_buttons(user_id, question_id, message.from_user.username)
         )
     except Exception as e:
         print(f"Adminlarga jo'natishda xatolik: {e}")

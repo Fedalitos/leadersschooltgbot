@@ -10,7 +10,9 @@ from aiogram.filters import Command
 
 from data.db import update_application_status, update_question_status, get_statistics, get_user_count
 from data.languages import user_languages
-from data.admins import is_admin
+from data.admins import is_admin, ADMINS
+from keyboards.admin_buttons import admin_panel_buttons
+from data.db import get_pending_applications_count, get_pending_questions_count, get_recent_applications, get_recent_questions
 
 router = Router()
 
@@ -166,9 +168,6 @@ async def process_admin_answer(message: Message, state: FSMContext):
         await state.clear()
         
 
-
-# ... существующий код ...
-
 # Тексты для статистики
 stats_texts = {
     "ru": {
@@ -289,3 +288,149 @@ async def stats_command(message: Message):
     )
     
     await message.answer(text)
+
+# ==============================
+# 🔘 Команда /panel
+# ==============================
+@router.message(Command("panel"))
+async def admin_panel_command(message: Message):
+    """Админ-панель"""
+    if not is_admin(message.from_user.id):
+        lang = user_languages.get(message.from_user.id, "uz")
+        await message.answer(response_texts[lang]["not_admin"])
+        return
+    
+    pending_apps = get_pending_applications_count()
+    pending_questions = get_pending_questions_count()
+    
+    text = f"👑 <b>Admin Panel</b>\n\n" \
+           f"📊 <b>Statistika:</b>\n" \
+           f"• 📝 Kutayotgan arizalar: {pending_apps}\n" \
+           f"• ❓ Kutayotgan savollar: {pending_questions}\n\n" \
+           f"🛠 <b>Boshqaruv:</b>\n" \
+           f"Quyidagi tugmalar orqali boshqaring"
+    
+    await message.answer(text, reply_markup=admin_panel_buttons())
+
+# ==============================
+# 🔘 Обработка кнопок админ-панели
+# ==============================
+@router.callback_query(lambda c: c.data.startswith("admin_"))
+async def admin_panel_actions(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        await call.answer("⛔ Sizda admin huquqlari yo'q!")
+        return
+    
+    data = call.data
+    
+    if data == "admin_stats":
+        # Перенаправляем на статистику
+        await stats_command(call.message)
+        await call.answer()
+        
+    elif data == "admin_pending_apps":
+        # Показываем ожидающие заявки
+        applications = get_recent_applications(10)
+        
+        if not applications:
+            text = "📝 <b>Kutayotgan arizalar yo'q</b>\n\nHozircha yangi ariza kelmagan."
+            await call.message.answer(text)
+        else:
+            text = "📝 <b>So'ngi 10 ta ariza:</b>\n\n"
+            for app in applications:
+                app_id, user_id, full_name, course, created_at = app
+                text += f"🔹 <b>#{app_id}</b> - {full_name}\n" \
+                       f"   📚 {course}\n" \
+                       f"   ⏰ {created_at[:16]}\n" \
+                       f"   👤 ID: {user_id}\n\n"
+            
+            await call.message.answer(text)
+        await call.answer()
+        
+    elif data == "admin_pending_questions":
+        # Показываем ожидающие вопросы
+        questions = get_recent_questions(10)
+        
+        if not questions:
+            text = "❓ <b>Kutayotgan savollar yo'q</b>\n\nHozircha yangi savol kelmagan."
+            await call.message.answer(text)
+        else:
+            text = "❓ <b>So'ngi 10 ta savol:</b>\n\n"
+            for quest in questions:
+                quest_id, user_id, question_text, created_at = quest
+                # Обрезаем длинный текст
+                short_text = question_text[:100] + "..." if len(question_text) > 100 else question_text
+                text += f"🔹 <b>#{quest_id}</b>\n" \
+                       f"   👤 ID: {user_id}\n" \
+                       f"   💬 {short_text}\n" \
+                       f"   ⏰ {created_at[:16]}\n\n"
+            
+            await call.message.answer(text)
+        await call.answer()
+        
+    elif data == "admin_users":
+        # Статистика по пользователям
+        users_stats = get_user_count()
+        text = f"👥 <b>Foydalanuvchi statistikasi:</b>\n\n" \
+               f"• Jami foydalanuvchilar: {users_stats['total_users']}\n" \
+               f"• Ariza yuborganlar: {users_stats['applications_users']}\n" \
+               f"• Savol berganlar: {users_stats['questions_users']}\n" \
+               f"• Faqat ko'rib chiqqanlar: {users_stats['total_users'] - users_stats['applications_users'] - users_stats['questions_users']}"
+        
+        await call.message.answer(text)
+        await call.answer()
+        
+    elif data == "admin_refresh":
+        # Обновить панель
+        await call.message.delete()
+        await admin_panel_command(call.message)
+        await call.answer("🔄 Panel yangilandi")
+        
+    elif data == "admin_close":
+        # Закрыть панель
+        await call.message.delete()
+        await call.answer("✅ Panel yopildi")
+
+# ==============================
+# 🔘 Уведомления администраторов
+# ==============================
+async def notify_admins_new_application(bot, application_id, user_info):
+    """Уведомление админов о новой заявке"""
+    for admin_id in ADMINS:
+        try:
+            text = f"🔔 <b>Yangi ariza!</b>\n\n" \
+                   f"📋 Ariza №: {application_id}\n" \
+                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
+                   f"📚 Kurs: {user_info['course']}\n" \
+                   f"📞 Tel: {user_info['phone']}"
+            
+            await bot.send_message(admin_id, text)
+        except:
+            pass
+
+async def notify_admins_new_question(bot, question_id, user_info):
+    """Уведомление админов о новом вопросе"""
+    for admin_id in ADMINS:
+        try:
+            text = f"🔔 <b>Yangi savol!</b>\n\n" \
+                   f"📋 Savol №: {question_id}\n" \
+                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
+                   f"💬 Savol: {user_info['question_text'][:100]}..."
+            
+            await bot.send_message(admin_id, text)
+        except:
+            pass
+
+# ==============================
+# 🔘 Команда быстрого ответа
+# ==============================
+@router.message(Command("answer"))
+async def quick_answer_command(message: Message, state: FSMContext):
+    """Быстрый ответ на последний вопрос"""
+    if not is_admin(message.from_user.id):
+        return
+    
+    await message.answer("💬 <b>Tezkor javob berish</b>\n\n" \
+                        "Quyidagi formatda yozing:\n" \
+                        "<code>/answer [savol_id] [javob matni]</code>\n\n" \
+                        "Misol: <code>/answer 15 Salom, sizning savolingizga javob...</code>")

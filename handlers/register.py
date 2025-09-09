@@ -10,8 +10,9 @@ from aiogram.fsm.context import FSMContext
 from keyboards.main_menu import main_menu
 from keyboards.admin_buttons import admin_approve_buttons
 from data.languages import user_languages
-from data.db import save_application, init_db
-from data.admins import ADMINS  # ID группы теперь в admins.py
+from data.db import save_application
+from data.admins import ADMINS
+from handlers.admin import notify_admins_new_application
 
 # Administrator guruhining IDsi (o'zgartiring)
 ADMIN_GROUP_ID = -4931417098
@@ -24,10 +25,6 @@ class RegistrationStates(StatesGroup):
     waiting_for_course = State()
     waiting_for_phone = State()
 
-# Bazani ishga tushirish
-init_db()
-
-# Matnlar turli tillarda
 # Matnlar turli tillarda
 registration_texts = {
     "ru": {
@@ -109,6 +106,14 @@ async def process_phone(message: Message, state: FSMContext):
 
     # Arizani bazaga saqlash
     application_id = save_application(user_id, full_name, course, phone, lang)
+    
+    # Уведомляем администраторов
+    user_info = {
+        'full_name': full_name,
+        'course': course,
+        'phone': phone
+    }
+    await notify_admins_new_application(message.bot, application_id, user_info)
 
     # Administrator guruhiga yuborish
     admin_text = f"🆕 <b>Yangi kurs arizasi</b>\n\n" \
@@ -116,18 +121,10 @@ async def process_phone(message: Message, state: FSMContext):
                  f"📚 <b>Kurs:</b> {course}\n" \
                  f"📱 <b>Telefon:</b> {phone}\n" \
                  f"🆔 <b>Telegram ID:</b> {user_id}\n" \
+                 f"👤 <b>Username:</b> @{message.from_user.username if message.from_user.username else 'Yo\'q'}\n" \
                  f"📋 <b>Ariza №:</b> {application_id}"
 
     try:
-        await message.bot.send_message(
-            chat_id=ADMIN_GROUP_ID,
-            text=admin_text,
-            reply_markup=admin_approve_buttons(user_id, application_id)
-        )
+        await message.bot.send_message
     except Exception as e:
-        print(f"Administrator guruhiga xabar yuborishda xatolik: {e}")
-
-    # Foydalanuvchiga tasdiqlash
-    user_text = registration_texts[lang]["success"].format(application_id, phone)
-    await message.answer(user_text, reply_markup=main_menu(lang))
-    await state.clear()
+        print(f"Error sending message to admin group: {e}")

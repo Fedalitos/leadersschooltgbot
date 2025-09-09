@@ -256,3 +256,60 @@ def get_user_count():
         'applications_users': applications_users,
         'questions_users': questions_users
     }
+    
+# Добавим в db.py новые функции
+def get_pending_applications_count():
+    """Количество ожидающих заявок"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM applications WHERE status = "kutilmoqda"')
+    count = cursor.fetchone()[0]
+    
+    conn.close()
+    return count
+
+def get_pending_questions_count():
+    """Количество ожидающих вопросов"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM questions WHERE status = "waiting"')
+    count = cursor.fetchone()[0]
+    
+    conn.close()
+    return count
+
+def get_recent_applications(limit=5):
+    """Последние заявки"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    SELECT id, user_id, full_name, course, created_at 
+    FROM applications 
+    WHERE status = "kutilmoqda" 
+    ORDER BY created_at DESC 
+    LIMIT ?
+    ''', (limit,))
+    
+    applications = cursor.fetchall()
+    conn.close()
+    return applications
+
+def get_recent_questions(limit=5):
+    """Последние вопросы"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    SELECT id, user_id, question_text, created_at 
+    FROM questions 
+    WHERE status = "waiting" 
+    ORDER BY created_at DESC 
+    LIMIT ?
+    ''', (limit,))
+    
+    questions = cursor.fetchall()
+    conn.close()
+    return questions
