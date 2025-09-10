@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 import sqlite3
 import re
 from data.db import get_all_groups
-from data.admins import is_admin
 from data.admins import is_admin as is_global_admin
 
 router = Router()
@@ -656,7 +655,7 @@ async def list_admins(message: Message):
 
 # ==============================
 # ==============================
-# 🔘 Хабар тарқатиш (РАССЫЛКА ПО ГРУППАМ)
+# 🔘 Хабар тарқатиш (РАССЫЛКА ПО ГРУППАМ) - ИСПРАВЛЕННАЯ ВЕРСИЯ
 # ==============================
 @router.message(Command("broadcast"))
 async def broadcast_to_groups(message: Message, command: CommandObject):
@@ -670,10 +669,19 @@ async def broadcast_to_groups(message: Message, command: CommandObject):
         return
 
     # Получаем список всех групп из базы данных
-    all_groups = get_all_groups()
+    try:
+        all_groups = get_all_groups()
+    except Exception as e:
+        await message.reply(f"❌ Ошибка получения списка групп: {e}")
+        return
+
+    if not all_groups:
+        await message.reply("❌ Нет групп в базе данных")
+        return
 
     success_count = 0
     error_count = 0
+    error_details = []
 
     # Рассылаем сообщение во все группы
     for group_id in all_groups:
@@ -685,9 +693,21 @@ async def broadcast_to_groups(message: Message, command: CommandObject):
             success_count += 1
         except Exception as e:
             error_count += 1
+            error_details.append(f"Группа {group_id}: {str(e)}")
             print(f"Ошибка отправки в группу {group_id}: {e}")
 
-    await message.reply(f"📢 <b>Сообщение отправлено в {success_count} групп!</b>\nНе удалось отправить: {error_count}")
+    # Формируем отчет
+    report = f"📢 <b>Результат рассылки:</b>\n\n" \
+             f"✅ Успешно отправлено: {success_count} групп\n" \
+             f"❌ Не удалось отправить: {error_count} групп"
+
+    if error_count > 0:
+        report += f"\n\n📋 Ошибки:\n" + "\n".join(error_details[:5])  # Показываем первые 5 ошибок
+        if error_count > 5:
+            report += f"\n... и еще {error_count - 5} ошибок"
+
+    await message.reply(report)
+
 # ==============================
 # ==============================
 # 🔘 Команда /admin
