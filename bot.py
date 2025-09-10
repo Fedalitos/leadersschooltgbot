@@ -62,6 +62,10 @@ async def main():
     # 🔹 Инициализация БД
     from data.db import init_db
     init_db()
+    
+    # 🔹 Инициализация группы БД
+    from handlers.group_moderation import init_group_db
+    init_group_db()
 
     print("✅ Bot ishga tushdi...")
     

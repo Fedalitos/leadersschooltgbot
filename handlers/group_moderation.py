@@ -668,30 +668,25 @@ async def broadcast_message(message: Message, command: CommandObject):
         await message.reply(TEXTS["syntax_error"].format(syntax="/broadcast [матн]"))
         return
     
-    # Получаем список всех групп из базы данных
-    from data.db import get_all_groups
-    all_groups = get_all_groups()
-    
-    if not all_groups:
-        await message.reply("❌ Нет групп для рассылки")
-        return
+    # Получаем список всех администраторов
+    from data.admins import ADMINS
     
     success_count = 0
     error_count = 0
     
-    # Рассылаем сообщение во все группы
-    for group_id in all_groups:
+    # Рассылаем сообщение всем администраторам
+    for admin_id in ADMINS:
         try:
             await message.bot.send_message(
-                chat_id=group_id,
-                text=command.args
+                chat_id=admin_id,
+                text=f"📢 <b>Broadcast сообщение:</b>\n\n{command.args}"
             )
             success_count += 1
         except Exception as e:
             error_count += 1
-            print(f"Ошибка отправки в группу {group_id}: {e}")
+            print(f"Ошибка отправки администратору {admin_id}: {e}")
     
-    await message.reply(TEXTS["broadcast_success"].format(count=success_count))
+    await message.reply(f"📢 <b>Сообщение отправлено {success_count} администраторам!</b>")
 
 # ==============================
 # ==============================
