@@ -40,18 +40,18 @@ async def main():
     from handlers.courses import router as courses_router
     from handlers.schedule import router as schedule_router
     from handlers.register import router as register_router
-    from handlers.reviews import router as reviews_router  # НОВЫЙ ИМПОРТ
+    from handlers.reviews import router as reviews_router
     from handlers.contacts import router as contacts_router
     from handlers.language import router as language_router
     from handlers.question import router as question_router
-    
+
     dp.include_router(admin_router)
     dp.include_router(question_router)
     dp.include_router(start_router)
     dp.include_router(courses_router)
     dp.include_router(schedule_router)
     dp.include_router(register_router)
-    dp.include_router(reviews_router)  # НОВЫЙ РОУТЕР
+    dp.include_router(reviews_router)
     dp.include_router(contacts_router)
     dp.include_router(language_router)
 
