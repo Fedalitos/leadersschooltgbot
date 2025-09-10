@@ -10,7 +10,7 @@ from aiogram.fsm.context import FSMContext
 from keyboards.main_menu import main_menu
 from keyboards.reviews_menu import reviews_menu, admin_reviews_buttons
 from data.languages import user_languages
-from data.db import save_review, get_reviews, delete_review, get_review_stats
+from data.db import save_review, get_reviews, delete_review, get_review_stats, hide_review
 from data.admins import is_admin
 from data.admins import ADMINS
 
@@ -275,7 +275,8 @@ async def notify_admins_new_review(bot, review_id, user_info, rating, review_tex
                 pass
             
 # ==============================
-# 🔘 Удаление и скрытие отзывов (Перенесено из admin.py)
+# ==============================
+# 🔘 Удаление и скрытие отзывов
 # ==============================
 @router.callback_query(lambda c: c.data.startswith(("admin_delete_review_", "admin_hide_review_")))
 async def admin_review_actions(call: CallbackQuery):
@@ -287,14 +288,12 @@ async def admin_review_actions(call: CallbackQuery):
 
     if data.startswith("admin_delete_review_"):
         review_id = int(data.split("_")[3])
-        from data.db import delete_review
         delete_review(review_id)
         await call.message.edit_reply_markup(reply_markup=None)
         await call.answer("🗑️ Fikr o'chirildi")
 
     elif data.startswith("admin_hide_review_"):
         review_id = int(data.split("_")[3])
-        from data.db import hide_review
         hide_review(review_id)
         await call.message.edit_reply_markup(reply_markup=None)
         await call.answer("👁️ Fikr yashirildi")

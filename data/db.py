@@ -483,3 +483,40 @@ def get_all_groups():
     groups = [row[0] for row in cursor.fetchall()]
     conn.close()
     return groups
+
+def get_group_connection():
+    """Baza bilan bog'lanishni olish (groups uchun)"""
+    return sqlite3.connect(DB_PATH)
+
+def get_group_admins(group_id: int):
+    """Получить администраторов группы"""
+    conn = get_group_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT user_id FROM group_admins WHERE group_id = ?', (group_id,))
+    admin_ids = [row[0] for row in cursor.fetchall()]
+    
+    conn.close()
+    return admin_ids
+
+def add_group_admin(user_id: int, group_id: int, added_by: int):
+    """Добавить администратора группы"""
+    conn = get_group_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    INSERT OR IGNORE INTO group_admins (user_id, group_id, added_by)
+    VALUES (?, ?, ?)
+    ''', (user_id, group_id, added_by))
+    
+    conn.commit()
+    conn.close()
+
+def remove_group_admin(user_id: int, group_id: int):
+    """Удалить администратора группы"""
+    conn = get_group_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM group_admins WHERE user_id = ? AND group_id = ?', (user_id, group_id))
+    conn.commit()
+    conn.close()

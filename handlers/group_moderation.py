@@ -13,6 +13,7 @@ import sqlite3
 import re
 from data.db import get_all_groups
 from data.admins import is_admin
+from data.admins import is_admin as is_global_admin
 
 router = Router()
 
@@ -119,11 +120,10 @@ MUTE_TIMES = {
 # ==============================
 # 🔘 Админлик ҳуқуқини текшириш
 # ==============================
-# Замените проверку прав для глобальных команд
+# Исправьте функцию проверки прав
 async def is_global_admin(user_id: int) -> bool:
-    """Проверка глобальных прав администратора (из data/admins.py)"""
-    from data.admins import is_admin
-    return is_admin(user_id)
+    """Проверка глобальных прав администратора"""
+    return is_global_admin(user_id)
 
 # ==============================
 # ==============================
@@ -561,10 +561,6 @@ async def add_admin(message: Message):
         await message.reply(TEXTS["no_permission"])
         return
     
-    if not message.reply_to_message:
-        await message.reply(TEXTS["syntax_error"].format(syntax="/addadmin - фойдаланувчига жавобан"))
-        return
-    
     target_user = message.reply_to_message.from_user
     
     conn = get_group_connection()
@@ -651,9 +647,10 @@ async def list_admins(message: Message):
     for user_id in admin_ids:
         try:
             user = await message.bot.get_chat(user_id)
-            admins_text += f"👑 {user.full_name} (@{user.username})\n"
-        except:
-            admins_text += f"👑 ID: {user_id}\n"
+            username = f"@{user.username}" if user.username else "Нет username"
+            admins_text += f"👑 {user.full_name} ({username})\n"
+        except Exception as e:
+            admins_text += f"👑 ID: {user_id} (не удалось получить информацию)\n"
     
     await message.reply(TEXTS["admin_list"].format(admins=admins_text))
 
@@ -673,7 +670,6 @@ async def broadcast_to_groups(message: Message, command: CommandObject):
         return
 
     # Получаем список всех групп из базы данных
-    from data.db import get_all_groups
     all_groups = get_all_groups()
 
     success_count = 0
