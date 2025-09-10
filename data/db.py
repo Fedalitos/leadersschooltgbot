@@ -2,6 +2,7 @@
 # 🔹 data/db.py — arizalar va savollar uchun ma'lumotlar bazasi
 # ============================================
 
+
 import sqlite3
 import os
 
@@ -39,6 +40,20 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         admin_id INTEGER,
         answer_text TEXT
+    )
+    ''')
+    
+    # Таблица отзывов (НОВАЯ)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        review_text TEXT NOT NULL,
+        lang TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_visible BOOLEAN DEFAULT TRUE
     )
     ''')
     
@@ -313,3 +328,95 @@ def get_recent_questions(limit=5):
     questions = cursor.fetchall()
     conn.close()
     return questions
+
+# 🔹 Функции для работы с отзывами
+# ==============================
+
+def save_review(user_id: int, user_name: str, rating: int, review_text: str, lang: str) -> int:
+    """Сохранить новый отзыв"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    INSERT INTO reviews (user_id, user_name, rating, review_text, lang)
+    VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, user_name, rating, review_text, lang))
+    
+    review_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Отзыв сохранен: ID {review_id}")
+    return review_id
+
+def get_reviews(limit: int = 20):
+    """Получить все отзывы"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+    SELECT id, user_name, rating, review_text, created_at 
+    FROM reviews 
+    WHERE is_visible = TRUE 
+    ORDER BY created_at DESC 
+    LIMIT ?
+    ''', (limit,))
+    
+    reviews = cursor.fetchall()
+    conn.close()
+    return reviews
+
+def delete_review(review_id: int):
+    """Удалить отзыв"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM reviews WHERE id = ?', (review_id,))
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Отзыв удален: ID {review_id}")
+
+def get_review_stats():
+    """Получить статистику отзывов"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    stats = {}
+    
+    # Общее количество отзывов
+    cursor.execute('SELECT COUNT(*) FROM reviews WHERE is_visible = TRUE')
+    stats['total_reviews'] = cursor.fetchone()[0]
+    
+    # Средний рейтинг
+    cursor.execute('SELECT AVG(rating) FROM reviews WHERE is_visible = TRUE')
+    stats['average_rating'] = cursor.fetchone()[0] or 0
+    
+    # Распределение по рейтингам
+    cursor.execute('''
+    SELECT rating, COUNT(*) 
+    FROM reviews 
+    WHERE is_visible = TRUE 
+    GROUP BY rating 
+    ORDER BY rating DESC
+    ''')
+    
+    rating_distribution = {}
+    for rating, count in cursor.fetchall():
+        rating_distribution[rating] = count
+    
+    stats['rating_distribution'] = rating_distribution
+    
+    conn.close()
+    return stats
+
+def hide_review(review_id: int):
+    """Скрыть отзыв (без удаления)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('UPDATE reviews SET is_visible = FALSE WHERE id = ?', (review_id,))
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Отзыв скрыт: ID {review_id}")

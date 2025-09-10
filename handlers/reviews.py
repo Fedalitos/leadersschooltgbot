@@ -1,43 +1,238 @@
 # ============================================
-# 🔹 handlers/reviews.py — раздел "Отзывы"
+# 🔹 handlers/reviews.py — улучшенная система отзывов
 # ============================================
 
-from aiogram import Router
-from aiogram.types import CallbackQuery
-from keyboards.main_menu import main_menu
-from data.languages import user_languages
+from aiogram import Router, F
+from aiogram.types import CallbackQuery, Message
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 
-# ==============================
-# 📌 Роутер для раздела "Отзывы"
-# ==============================
+from keyboards.main_menu import main_menu
+from keyboards.reviews_menu import reviews_menu, admin_reviews_buttons
+from data.languages import user_languages
+from data.db import save_review, get_reviews, delete_review, get_review_stats
+from data.admins import is_admin
+
 router = Router()
 
+# Состояния для отзыва
+class ReviewStates(StatesGroup):
+    waiting_for_review = State()
+    waiting_for_rating = State()
+
+# Тексты на разных языках
+review_texts = {
+    "ru": {
+        "start": "⭐ <b>Оставьте отзыв о нашем учебном центре!</b>\n\n"
+                "Пожалуйста, оцените нас от 1 до 5 звезд:",
+        "ask_text": "📝 <b>Напишите ваш отзыв:</b>\n\n"
+                   "Расскажите о вашем опыте обучения. Что вам понравилось? "
+                   "Что можно улучшить?",
+        "success": "✅ <b>Спасибо за ваш отзыв!</b>\n\n"
+                  "Ваше мнение очень важно для нас и поможет стать лучше.\n\n"
+                  "⭐ Оценка: {}/5\n"
+                  "📝 Отзыв: {}",
+        "all_reviews": "💬 <b>Все отзывы студентов:</b>\n\n",
+        "no_reviews": "📝 <b>Отзывов пока нет</b>\n\n"
+                     "Будьте первым, кто оставит отзыв!",
+        "review_deleted": "🗑️ <b>Отзыв удален</b>",
+        "stats": "📊 <b>Статистика отзывов:</b>\n\n"
+                "⭐ Средняя оценка: {:.1f}/5\n"
+                "📝 Всего отзывов: {}\n"
+                "🎯 Распределение:\n{}",
+        "not_admin": "⛔ <b>У вас нет прав администратора!</b>"
+    },
+    "uz": {
+        "start": "⭐ <b>O'quv markazimiz haqida fikringizni yozing!</b>\n\n"
+                "Iltimos, bizni 1 dan 5 yulduzgacha baholang:",
+        "ask_text": "📝 <b>Fikringizni yozing:</b>\n\n"
+                   "O'qish tajribangiz haqida hikoya qiling. Nima yoqdi? "
+                   "Nimani yaxshilash mumkin?",
+        "success": "✅ <b>Fikringiz uchun rahmat!</b>\n\n"
+                  "Sizning fikringiz biz uchun juda muhim va yaxshilanishga yordam beradi.\n\n"
+                  "⭐ Baho: {}/5\n"
+                  "📝 Fikr: {}",
+        "all_reviews": "💬 <b>Barcha talabalar fikrlari:</b>\n\n",
+        "no_reviews": "📝 <b>Hozircha fikrlar yo'q</b>\n\n"
+                     "Fikr qoldirgan birinchi bo'ling!",
+        "review_deleted": "🗑️ <b>Fikr o'chirildi</b>",
+        "stats": "📊 <b>Fikrlar statistikasi:</b>\n\n"
+                "⭐ O'rtacha baho: {:.1f}/5\n"
+                "📝 Jami fikrlar: {}\n"
+                "🎯 Taqsimot:\n{}",
+        "not_admin": "⛔ <b>Sizda administrator huquqlari yo'q!</b>"
+    },
+    "en": {
+        "start": "⭐ <b>Leave a review about our learning center!</b>\n\n"
+                "Please rate us from 1 to 5 stars:",
+        "ask_text": "📝 <b>Write your review:</b>\n\n"
+                   "Tell us about your learning experience. What did you like? "
+                   "What can be improved?",
+        "success": "✅ <b>Thank you for your review!</b>\n\n"
+                  "Your opinion is very important to us and will help us improve.\n\n"
+                  "⭐ Rating: {}/5\n"
+                  "📝 Review: {}",
+        "all_reviews": "💬 <b>All student reviews:</b>\n\n",
+        "no_reviews": "📝 <b>No reviews yet</b>\n\n"
+                     "Be the first to leave a review!",
+        "review_deleted": "🗑️ <b>Review deleted</b>",
+        "stats": "📊 <b>Reviews statistics:</b>\n\n"
+                "⭐ Average rating: {:.1f}/5\n"
+                "📝 Total reviews: {}\n"
+                "🎯 Distribution:\n{}",
+        "not_admin": "⛔ <b>You don't have administrator rights!</b>"
+    }
+}
+
+# Эмодзи для рейтинга
+rating_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+
 # ==============================
-# 🔘 Обработка кнопки "Отзывы"
+# 🔘 Кнопка "Отзывы"
 # ==============================
 @router.callback_query(lambda c: c.data == "reviews")
 async def reviews_handler(call: CallbackQuery):
-    """
-    Показывает отзывы студентов на выбранном языке
-    """
     user_id = call.from_user.id
-    lang = user_languages.get(user_id, "ru")  # язык по умолчанию
+    lang = user_languages.get(user_id, "ru")
+    
+    await call.message.answer(
+        "💬 <b>Система отзывов</b>\n\nВыберите действие:",
+        reply_markup=reviews_menu(lang, is_admin(user_id))
+    )
+    await call.answer()
 
-    texts = {
-        "ru": "💬 <b>Отзывы студентов:</b>\n\n"
-              "1. «Отличные преподаватели и удобное расписание!»\n"
-              "2. «Курсы помогли мне освоить Python с нуля.»\n"
-              "3. «Очень доволен обучением!»",
-        "uz": "💬 <b>Talabalar fikrlari:</b>\n\n"
-              "1. «Zo‘r o‘qituvchilar va qulay dars jadvali!»\n"
-              "2. «Kurslar menga Pythonni 0 dan o‘rganishga yordam berdi.»\n"
-              "3. «O‘qishdan juda mamnunman!»",
-        "en": "💬 <b>Student Reviews:</b>\n\n"
-              "1. «Great teachers and convenient schedule!»\n"
-              "2. «The courses helped me learn Python from scratch.»\n"
-              "3. «Very satisfied with the training!»"
-    }
+# ==============================
+# 🔘 Оставить отзыв
+# ==============================
+@router.callback_query(lambda c: c.data == "leave_review")
+async def leave_review_start(call: CallbackQuery, state: FSMContext):
+    user_id = call.from_user.id
+    lang = user_languages.get(user_id, "ru")
+    
+    text = review_texts[lang]["start"]
+    await call.message.answer(text, reply_markup=rating_menu(lang))
+    await state.set_state(ReviewStates.waiting_for_rating)
+    await call.answer()
 
-    # Отправляем сообщение с текстом и главное меню
-    await call.message.answer(texts[lang], reply_markup=main_menu(lang))
-    await call.answer()  # убираем "часики"
+# ==============================
+# 🔘 Выбор рейтинга
+# ==============================
+@router.callback_query(ReviewStates.waiting_for_rating, lambda c: c.data.startswith("rate_"))
+async def process_rating(call: CallbackQuery, state: FSMContext):
+    rating = int(call.data.split("_")[1])
+    await state.update_data(rating=rating)
+    
+    user_id = call.from_user.id
+    lang = user_languages.get(user_id, "ru")
+    
+    text = review_texts[lang]["ask_text"]
+    await call.message.answer(text)
+    await state.set_state(ReviewStates.waiting_for_review)
+    await call.answer()
+
+# ==============================
+# 🔘 Получение текста отзыва
+# ==============================
+@router.message(ReviewStates.waiting_for_review)
+async def process_review_text(message: Message, state: FSMContext):
+    user_data = await state.get_data()
+    user_id = message.from_user.id
+    lang = user_languages.get(user_id, "ru")
+    review_text = message.text
+    rating = user_data['rating']
+    
+    # Сохраняем отзыв в базу
+    review_id = save_review(user_id, message.from_user.full_name, rating, review_text, lang)
+    
+    # Подтверждение пользователю
+    short_review = review_text[:100] + "..." if len(review_text) > 100 else review_text
+    user_text = review_texts[lang]["success"].format(rating, short_review)
+    await message.answer(user_text, reply_markup=main_menu(lang))
+    await state.clear()
+
+# ==============================
+# 🔘 Просмотр всех отзывов
+# ==============================
+@router.callback_query(lambda c: c.data == "view_reviews")
+async def view_all_reviews(call: CallbackQuery):
+    user_id = call.from_user.id
+    lang = user_languages.get(user_id, "ru")
+    
+    reviews = get_reviews()
+    
+    if not reviews:
+        text = review_texts[lang]["no_reviews"]
+        await call.message.answer(text)
+    else:
+        text = review_texts[lang]["all_reviews"]
+        for review in reviews[:10]:  # Показываем последние 10 отзывов
+            review_id, user_name, rating, review_text, created_at = review
+            stars = "⭐" * rating + "☆" * (5 - rating)
+            short_text = review_text[:150] + "..." if len(review_text) > 150 else review_text
+            
+            text += f"👤 <b>{user_name}</b> {stars}\n"
+            text += f"📅 {created_at[:10]}\n"
+            text += f"💬 {short_text}\n\n"
+        
+        await call.message.answer(text)
+    
+    await call.answer()
+
+# ==============================
+# 🔘 Статистика отзывов (только для админов)
+# ==============================
+@router.callback_query(lambda c: c.data == "reviews_stats")
+async def reviews_stats(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        lang = user_languages.get(call.from_user.id, "ru")
+        await call.answer(review_texts[lang]["not_admin"], show_alert=True)
+        return
+    
+    lang = user_languages.get(call.from_user.id, "ru")
+    stats = get_review_stats()
+    
+    # Формируем распределение рейтингов
+    distribution = ""
+    for i in range(5, 0, -1):
+        count = stats['rating_distribution'].get(i, 0)
+        percentage = (count / stats['total_reviews'] * 100) if stats['total_reviews'] > 0 else 0
+        stars = "⭐" * i + "☆" * (5 - i)
+        distribution += f"{stars}: {count} ({percentage:.1f}%)\n"
+    
+    text = review_texts[lang]["stats"].format(
+        stats['average_rating'], 
+        stats['total_reviews'],
+        distribution
+    )
+    
+    await call.message.answer(text)
+    await call.answer()
+
+# ==============================
+# 🔘 Удаление отзыва (админы)
+# ==============================
+@router.callback_query(lambda c: c.data.startswith("delete_review_"))
+async def delete_review_handler(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        lang = user_languages.get(call.from_user.id, "ru")
+        await call.answer(review_texts[lang]["not_admin"], show_alert=True)
+        return
+    
+    review_id = int(call.data.split("_")[2])
+    delete_review(review_id)
+    
+    await call.message.edit_reply_markup(reply_markup=None)
+    await call.answer("✅ Отзыв удален")
+
+# Клавиатура для выбора рейтинга
+def rating_menu(lang: str):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    buttons = []
+    for i in range(1, 6):
+        buttons.append(InlineKeyboardButton(
+            text=f"{rating_emojis[i-1]} {i}",
+            callback_data=f"rate_{i}"
+        ))
+    
+    return InlineKeyboardMarkup(inline_keyboard=[buttons])

@@ -466,3 +466,85 @@ async def quick_answer_command(message: Message, state: FSMContext):
                         "Quyidagi formatda yozing:\n" \
                         "<code>/answer [savol_id] [javob matni]</code>\n\n" \
                         "Misol: <code>/answer 15 Salom, sizning savolingizga javob...</code>")
+    
+# Fikr-mulohazalar uchun yangi ishlovchilarni qo'shamiz
+@router.callback_query(lambda c: c.data.startswith("admin_reviews"))
+async def admin_reviews_actions(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        lang = user_languages.get(call.from_user.id, "uz")
+        await call.answer(response_texts[lang]["not_admin"], show_alert=True)
+        return
+    
+    data = call.data
+    
+    if data == "admin_reviews":
+        # Fikr-mulohazalar statistikasi
+        from data.db import get_review_stats
+        stats = get_review_stats()
+        
+        lang = user_languages.get(call.from_user.id, "uz")
+        text = f"⭐ <b>Fikr-mulohazalar statistikasi</b>\n\n" \
+               f"📊 Jami fikrlar: {stats['total_reviews']}\n" \
+               f"🌟 O'rtacha reyting: {stats['average_rating']:.1f}/5\n\n" \
+               f"📈 Taqsimot:\n"
+        
+        for rating in range(5, 0, -1):
+            count = stats['rating_distribution'].get(rating, 0)
+            percentage = (count / stats['total_reviews'] * 100) if stats['total_reviews'] > 0 else 0
+            stars = "⭐" * rating + "☆" * (5 - rating)
+            text += f"{stars}: {count} ({percentage:.1f}%)\n"
+        
+        await call.message.answer(text)
+        
+    elif data == "admin_reviews_list":
+        # Fikr-mulohazalar ro'yxati
+        from data.db import get_reviews
+        reviews = get_reviews(limit=15)
+        
+        if not reviews:
+            text = "📝 <b>Hali fikr-mulohazalar yo'q</b>"
+            await call.message.answer(text)
+        else:
+            text = "📋 <b>Oxirgi 15 ta fikr:</b>\n\n"
+            for review in reviews:
+                review_id, user_name, rating, review_text, created_at = review
+                stars = "⭐" * rating + "☆" * (5 - rating)
+                short_text = review_text[:80] + "..." if len(review_text) > 80 else review_text
+                
+                text += f"🔹 <b>#{review_id}</b> {stars}\n" \
+                       f"👤 {user_name}\n" \
+                       f"💬 {short_text}\n" \
+                       f"📅 {created_at[:10]}\n\n"
+            
+            await call.message.answer(text)
+    
+    await call.answer()
+
+# admin_panel_actions ga yangi tugmalarni qo'shamiz
+@router.callback_query(lambda c: c.data.startswith("admin_"))
+async def admin_panel_actions(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        await call.answer("⛔ Sizda admin huquqlari yo'q!")
+        return
+    
+    data = call.data
+    
+    # ... mavjud ishlovchilar ...
+
+    if data == "admin_reviews":
+        # Fikr-mulohazalar ishlovchisiga yo'naltiramiz
+        await admin_reviews_actions(call)
+
+    elif data == "admin_notifications":
+        # Bildirishnomalarni boshqarish
+        text = "🔔 <b>Bildirishnomalarni boshqarish</b>\n\n" \
+               "Yangi ariza va savollar haqida bildirishnoma olishni sozlashingiz mumkin."
+        await call.message.answer(text)
+
+    elif data == "admin_settings":
+        # Bot sozlamalari
+        text = "⚙️ <b>Bot sozlamalari</b>\n\n" \
+               "Bu yerda botning turli parametrlarini sozlashingiz mumkin."
+        await call.message.answer(text)
+
+    await call.answer()
