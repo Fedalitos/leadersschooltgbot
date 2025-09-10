@@ -11,8 +11,22 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime, timedelta
 import sqlite3
 import re
+from data.db import get_all_groups
+from data.admins import is_admin
 
 router = Router()
+
+# ==============================
+# 🔘 Функция для проверки, является ли бот админом в группе
+# ==============================
+async def is_bot_admin(bot, chat_id: int) -> bool:
+    """Проверяет, является ли бот администратором в группе"""
+    try:
+        member = await bot.get_chat_member(chat_id, bot.id)
+        return member.status in ("administrator", "creator")
+    except Exception:
+        return False
+      
 
 # База данных для заметок и мутов
 NOTES_DB = "group_data.db"
@@ -105,22 +119,11 @@ MUTE_TIMES = {
 # ==============================
 # 🔘 Админлик ҳуқуқини текшириш
 # ==============================
-async def is_group_admin(bot, chat_id, user_id):
-    """Фойдаланувчи гуруҳда администраторми ёки йўқми"""
-    try:
-        member = await bot.get_chat_member(chat_id, user_id)
-        return member.status in ['administrator', 'creator']
-    except:
-        return False
-
-async def is_bot_admin(bot, chat_id):
-    """Бот гуруҳда администраторми ёки йўқми"""
-    try:
-        me = await bot.get_me()
-        member = await bot.get_chat_member(chat_id, me.id)
-        return member.status in ['administrator', 'creator']
-    except:
-        return False
+# Замените проверку прав для глобальных команд
+async def is_global_admin(user_id: int) -> bool:
+    """Проверка глобальных прав администратора (из data/admins.py)"""
+    from data.admins import is_admin
+    return is_admin(user_id)
 
 # ==============================
 # ==============================
@@ -132,7 +135,7 @@ async def ban_user(message: Message, command: CommandObject):
     if not await is_bot_admin(message.bot, message.chat.id):
         return
     
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -183,7 +186,7 @@ async def kick_user(message: Message):
     if not await is_bot_admin(message.bot, message.chat.id):
         return
     
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -236,7 +239,7 @@ async def mute_user_command(message: Message):
     if not await is_bot_admin(message.bot, message.chat.id):
         return
     
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -345,7 +348,7 @@ async def unmute_user(message: Message):
     if not await is_bot_admin(message.bot, message.chat.id):
         return
     
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -390,7 +393,7 @@ async def delete_message(message: Message):
     if not await is_bot_admin(message.bot, message.chat.id):
         return
     
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -413,7 +416,7 @@ async def delete_message(message: Message):
 @router.message(Command("note"))
 async def add_note(message: Message, command: CommandObject):
     """Янги эслатма қўшиш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -464,7 +467,7 @@ async def add_note(message: Message, command: CommandObject):
 @router.message(Command("delnote"))
 async def delete_note(message: Message, command: CommandObject):
     """Эслатмани ўчириш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -554,7 +557,7 @@ async def handle_note_triggers(message: Message):
 @router.message(Command("addadmin"))
 async def add_admin(message: Message):
     """Янги администратор қўшиш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -597,7 +600,7 @@ async def add_admin(message: Message):
 @router.message(Command("removeadmin"))
 async def remove_admin(message: Message):
     """Администраторни олиб ташлаш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     
@@ -655,39 +658,40 @@ async def list_admins(message: Message):
     await message.reply(TEXTS["admin_list"].format(admins=admins_text))
 
 # ==============================
-# 🔘 Хабар тарқатиш (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+# ==============================
+# 🔘 Хабар тарқатиш (РАССЫЛКА ПО ГРУППАМ)
 # ==============================
 @router.message(Command("broadcast"))
-async def broadcast_message(message: Message, command: CommandObject):
+async def broadcast_to_groups(message: Message, command: CommandObject):
     """Хабарни барча гуруҳларга тарқатиш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
-    
+
     if not command.args:
         await message.reply(TEXTS["syntax_error"].format(syntax="/broadcast [матн]"))
         return
-    
-    # Получаем список всех администраторов
-    from data.admins import ADMINS
-    
+
+    # Получаем список всех групп из базы данных
+    from data.db import get_all_groups
+    all_groups = get_all_groups()
+
     success_count = 0
     error_count = 0
-    
-    # Рассылаем сообщение всем администраторам
-    for admin_id in ADMINS:
+
+    # Рассылаем сообщение во все группы
+    for group_id in all_groups:
         try:
             await message.bot.send_message(
-                chat_id=admin_id,
-                text=f"📢 <b>Broadcast сообщение:</b>\n\n{command.args}"
+                chat_id=group_id,
+                text=f"📢 <b>Объявление от администратора:</b>\n\n{command.args}"
             )
             success_count += 1
         except Exception as e:
             error_count += 1
-            print(f"Ошибка отправки администратору {admin_id}: {e}")
-    
-    await message.reply(f"📢 <b>Сообщение отправлено {success_count} администраторам!</b>")
+            print(f"Ошибка отправки в группу {group_id}: {e}")
 
+    await message.reply(f"📢 <b>Сообщение отправлено в {success_count} групп!</b>\nНе удалось отправить: {error_count}")
 # ==============================
 # ==============================
 # 🔘 Команда /admin
@@ -695,7 +699,7 @@ async def broadcast_message(message: Message, command: CommandObject):
 @router.message(Command("admin"))
 async def admin_command(message: Message):
     """Админ панелини кўрсатиш"""
-    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+    if not await is_global_admin(message.from_user.id):
         await message.reply(TEXTS["no_permission"])
         return
     

@@ -8,7 +8,6 @@ from storage import storage
 # 🔹 Bot token
 TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
-dp = Dispatcher()
 dp = Dispatcher(storage=storage)
 
 # 🔹 HTTP сервер для health checks

@@ -12,6 +12,7 @@ from keyboards.reviews_menu import reviews_menu, admin_reviews_buttons
 from data.languages import user_languages
 from data.db import save_review, get_reviews, delete_review, get_review_stats
 from data.admins import is_admin
+from data.admins import ADMINS
 
 router = Router()
 
@@ -140,10 +141,17 @@ async def process_review_text(message: Message, state: FSMContext):
     lang = user_languages.get(user_id, "ru")
     review_text = message.text
     rating = user_data['rating']
-    
+
     # Сохраняем отзыв в базу
     review_id = save_review(user_id, message.from_user.full_name, rating, review_text, lang)
-    
+
+    # ✅ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ АДМИНАМ
+    user_info = {
+        'user_id': user_id,
+        'full_name': message.from_user.full_name
+    }
+    await notify_admins_new_review(message.bot, review_id, user_info, rating, review_text)
+
     # Подтверждение пользователю
     short_review = review_text[:100] + "..." if len(review_text) > 100 else review_text
     user_text = review_texts[lang]["success"].format(rating, short_review)
@@ -236,3 +244,57 @@ def rating_menu(lang: str):
         ))
     
     return InlineKeyboardMarkup(inline_keyboard=[buttons])
+
+# Добавьте эту функцию в файл, рядом с другими
+async def notify_admins_new_review(bot, review_id, user_info, rating, review_text):
+    """Уведомление админов о новом отзыве"""
+    admin_text = f"⭐ <b>Новый отзыв!</b>\n\n" \
+                 f"👤 <b>Пользователь:</b> {user_info['full_name']}\n" \
+                 f"🆔 <b>ID:</b> {user_info['user_id']}\n" \
+                 f"⭐ <b>Оценка:</b> {rating}/5\n" \
+                 f"📋 <b>Отзыв №:</b> {review_id}\n\n" \
+                 f"💬 <b>Текст:</b>\n{review_text}"
+
+    # ID группы администраторов (замените на ваш)
+    ADMIN_GROUP_ID = -4931417098
+
+    try:
+        await bot.send_message(
+            chat_id=ADMIN_GROUP_ID,
+            text=admin_text,
+            reply_markup=admin_reviews_buttons(review_id) # Кнопки "Удалить", "Скрыть"
+        )
+    except Exception as e:
+        print(f"Ошибка отправки отзыва админам: {e}")
+        # Резервная отправка личным сообщением каждому админу
+        from data.admins import ADMINS
+        for admin_id in ADMINS:
+            try:
+                await bot.send_message(admin_id, admin_text, reply_markup=admin_reviews_buttons(review_id))
+            except:
+                pass
+            
+# ==============================
+# 🔘 Удаление и скрытие отзывов (Перенесено из admin.py)
+# ==============================
+@router.callback_query(lambda c: c.data.startswith(("admin_delete_review_", "admin_hide_review_")))
+async def admin_review_actions(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        await call.answer("⛔ Sizda admin huquqlari yo'q!")
+        return
+
+    data = call.data
+
+    if data.startswith("admin_delete_review_"):
+        review_id = int(data.split("_")[3])
+        from data.db import delete_review
+        delete_review(review_id)
+        await call.message.edit_reply_markup(reply_markup=None)
+        await call.answer("🗑️ Fikr o'chirildi")
+
+    elif data.startswith("admin_hide_review_"):
+        review_id = int(data.split("_")[3])
+        from data.db import hide_review
+        hide_review(review_id)
+        await call.message.edit_reply_markup(reply_markup=None)
+        await call.answer("👁️ Fikr yashirildi")

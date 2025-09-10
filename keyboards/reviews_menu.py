@@ -43,7 +43,7 @@ def admin_reviews_buttons(review_id: int):
     """
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"delete_review_{review_id}"),
-            InlineKeyboardButton(text="👁️ Скрыть", callback_data=f"hide_review_{review_id}")
+            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"admin_delete_review_{review_id}"),
+            InlineKeyboardButton(text="👁️ Скрыть", callback_data=f"admin_hide_review_{review_id}")
         ]
     ])

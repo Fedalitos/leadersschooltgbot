@@ -29,6 +29,17 @@ def init_db():
     )
     ''')
     
+        # Таблица групп
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER UNIQUE,
+        title TEXT,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    
     # Таблица вопросов
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS questions (
@@ -64,6 +75,26 @@ def init_db():
 def get_connection():
     """Baza bilan bog'lanishni olish"""
     return sqlite3.connect(DB_PATH)
+
+def get_all_users():
+    """Получить всех пользователей бота"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Объединяем пользователей из всех таблиц
+    cursor.execute('''
+    SELECT DISTINCT user_id FROM (
+        SELECT user_id FROM applications 
+        UNION 
+        SELECT user_id FROM questions
+        UNION
+        SELECT user_id FROM reviews
+    )
+    ''')
+    
+    user_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return user_ids
 
 # Функции для заявок
 def save_application(user_id: int, full_name: str, course: str, phone: str, lang: str) -> int:
@@ -421,21 +452,34 @@ def hide_review(review_id: int):
     
     print(f"✅ Отзыв скрыт: ID {review_id}")
     
-def get_all_groups():
-    """Барча гуруҳлар рўйхатини олиш"""
+
+
+def add_group(chat_id: int, title: str):
+    """Сохранить группу в базу"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    # Ариза берилган барча фойдаланувчиларнинг гуруҳлари
-    cursor.execute('SELECT DISTINCT user_id FROM applications')
-    applications_users = [row[0] for row in cursor.fetchall()]
-    
-    # Савол берилган барча фойдаланувчиларнинг гуруҳлари
-    cursor.execute('SELECT DISTINCT user_id FROM questions')
-    questions_users = [row[0] for row in cursor.fetchall()]
-    
-    # Барча фойдаланувчилар
-    all_users = list(set(applications_users + questions_users))
-    
+    cursor.execute('''
+        INSERT OR IGNORE INTO groups (chat_id, title)
+        VALUES (?, ?)
+    ''', (chat_id, title))
+    conn.commit()
     conn.close()
-    return all_users
+    print(f"✅ Группа добавлена: {title} ({chat_id})")
+
+def remove_group(chat_id: int):
+    """Удалить группу из базы"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM groups WHERE chat_id = ?', (chat_id,))
+    conn.commit()
+    conn.close()
+    print(f"❌ Группа удалена: {chat_id}")
+
+def get_all_groups():
+    """Получить все группы"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT chat_id FROM groups')
+    groups = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return groups

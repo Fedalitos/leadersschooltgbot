@@ -475,27 +475,3 @@ async def notify_admins_new_question(bot, question_id, user_info):
         except:
             pass
         
-# ==============================
-# 🔘 Удаление и скрытие отзывов
-# ==============================
-@router.callback_query(lambda c: c.data.startswith(("admin_delete_review_", "admin_hide_review_")))
-async def admin_review_actions(call: CallbackQuery):
-    if not is_admin(call.from_user.id):
-        await call.answer("⛔ Sizda admin huquqlari yo'q!")
-        return
-    
-    data = call.data
-    
-    if data.startswith("admin_delete_review_"):
-        review_id = int(data.split("_")[3])
-        from data.db import delete_review
-        delete_review(review_id)
-        await call.message.edit_reply_markup(reply_markup=None)
-        await call.answer("🗑️ Fikr o'chirildi")
-        
-    elif data.startswith("admin_hide_review_"):
-        review_id = int(data.split("_")[3])
-        from data.db import hide_review
-        hide_review(review_id)
-        await call.message.edit_reply_markup(reply_markup=None)
-        await call.answer("👁️ Fikr yashirildi")
