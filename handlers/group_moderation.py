@@ -123,10 +123,11 @@ async def is_bot_admin(bot, chat_id):
         return False
 
 # ==============================
-# 🔘 Бан қилиш
+# ==============================
+# 🔘 Бан с временем
 # ==============================
 @router.message(Command("ban"))
-async def ban_user(message: Message):
+async def ban_user(message: Message, command: CommandObject):
     """Фойдаланувчини гуруҳдан бан қилиш"""
     if not await is_bot_admin(message.bot, message.chat.id):
         return
@@ -136,18 +137,40 @@ async def ban_user(message: Message):
         return
     
     if not message.reply_to_message:
-        await message.reply(TEXTS["syntax_error"].format(syntax="/ban [сабаб] - хабарга жавобан"))
+        await message.reply(TEXTS["syntax_error"].format(syntax="/ban [кун] [сабаб] - хабарга жавобан"))
         return
     
     target_user = message.reply_to_message.from_user
-    reason = message.text.split(' ', 1)[1] if len(message.text.split()) > 1 else "Сабаб кўрсатилмаган"
+    args = command.args.split() if command.args else []
+    
+    if not args:
+        ban_days = 0  # Навсегда
+        reason = "Сабаб кўрсатилмаган"
+    else:
+        try:
+            ban_days = int(args[0])
+            reason = ' '.join(args[1:]) if len(args) > 1 else "Сабаб кўрсатилмаган"
+        except ValueError:
+            ban_days = 0
+            reason = ' '.join(args) if args else "Сабаб кўрсатилмаган"
     
     try:
-        await message.bot.ban_chat_member(
-            chat_id=message.chat.id,
-            user_id=target_user.id
-        )
-        await message.reply(TEXTS["ban_success"].format(user=target_user.full_name))
+        if ban_days > 0:
+            # Временный бан
+            until_date = datetime.now() + timedelta(days=ban_days)
+            await message.bot.ban_chat_member(
+                chat_id=message.chat.id,
+                user_id=target_user.id,
+                until_date=until_date
+            )
+            await message.reply(f"✅ <b>{target_user.full_name}</b> {ban_days} кунга бан қилинди!\n🗒 Сабаб: {reason}")
+        else:
+            # Перманентный бан
+            await message.bot.ban_chat_member(
+                chat_id=message.chat.id,
+                user_id=target_user.id
+            )
+            await message.reply(f"✅ <b>{target_user.full_name}</b> муддатсиз бан қилинди!\n🗒 Сабаб: {reason}")
     except Exception as e:
         await message.reply(TEXTS["ban_error"])
 
@@ -182,10 +205,33 @@ async def kick_user(message: Message):
         await message.reply(TEXTS["kick_error"])
 
 # ==============================
-# 🔘 Овозсизлантириш
+# Клавиатура для выбора времени мута
+def mute_time_keyboard():
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="5 дақиқа", callback_data="mute_5m"),
+            InlineKeyboardButton(text="30 дақиқа", callback_data="mute_30m")
+        ],
+        [
+            InlineKeyboardButton(text="1 соат", callback_data="mute_1h"),
+            InlineKeyboardButton(text="6 соат", callback_data="mute_6h")
+        ],
+        [
+            InlineKeyboardButton(text="1 кун", callback_data="mute_1d"),
+            InlineKeyboardButton(text="7 кун", callback_data="mute_7d")
+        ],
+        [
+            InlineKeyboardButton(text="❌ Бекор қилиш", callback_data="mute_cancel")
+        ]
+    ])
+
+# ==============================
+# 🔘 Улучшенный мут с выбором времени
 # ==============================
 @router.message(Command("mute"))
-async def mute_user(message: Message, command: CommandObject):
+async def mute_user_command(message: Message):
     """Фойдаланувчини овозсизлантириш"""
     if not await is_bot_admin(message.bot, message.chat.id):
         return
@@ -195,35 +241,73 @@ async def mute_user(message: Message, command: CommandObject):
         return
     
     if not message.reply_to_message:
-        await message.reply(TEXTS["syntax_error"].format(syntax="/mute [вақт] [сабаб] - хабарга жавобан\nМисол: /mute 1h реклама учун"))
+        await message.reply(TEXTS["syntax_error"].format(syntax="/mute - хабарга жавобан"))
         return
     
+    # Сохраняем информацию о пользователе
     target_user = message.reply_to_message.from_user
-    args = command.args.split() if command.args else []
+    reason = message.text.split(' ', 1)[1] if len(message.text.split()) > 1 else "Сабаб кўрсатилмаган"
     
-    if not args:
-        mute_time = timedelta(hours=1)
-        reason = "Сабаб кўрсатилмаган"
-    else:
-        time_arg = args[0].lower()
-        reason = ' '.join(args[1:]) if len(args) > 1 else "Сабаб кўрсатилмаган"
-        
-        if time_arg in MUTE_TIMES:
-            mute_time = MUTE_TIMES[time_arg]
-        else:
-            # Время в минутах
-            try:
-                minutes = int(time_arg)
-                mute_time = timedelta(minutes=minutes)
-            except:
-                mute_time = timedelta(hours=1)
+    # Сохраняем в состоянии
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.base import StorageKey
     
+    # Создаем FSMContext для этого чата и пользователя
+    storage_key = StorageKey(
+        chat_id=message.chat.id,
+        user_id=message.from_user.id,
+        bot_id=message.bot.id
+    )
+    
+    # Используем глобальный диспетчер для доступа к storage
+    from bot import dp
+    state = FSMContext(storage=dp.storage, key=storage_key)
+    
+    await state.update_data(
+        target_user_id=target_user.id,
+        target_user_name=target_user.full_name,
+        reason=reason
+    )
+    
+    # Показываем клавиатуру выбора времени
+    await message.reply(
+        f"⏰ <b>{target_user.full_name}</b> учун муддатни танланг:",
+        reply_markup=mute_time_keyboard()
+    )
+
+# Обработка выбора времени мута
+@router.callback_query(lambda c: c.data.startswith("mute_"))
+async def process_mute_time(call: CallbackQuery, state: FSMContext):
+    if call.data == "mute_cancel":
+        await call.message.delete()
+        await call.answer("❌ Мут бекор қилинди")
+        await state.clear()
+        return
+    
+    # Получаем данные из состояния
+    data = await state.get_data()
+    target_user_id = data['target_user_id']
+    target_user_name = data['target_user_name']
+    reason = data['reason']
+    
+    # Определяем время мута
+    time_key = call.data.split("_")[1]
+    mute_times = {
+        "5m": ("5 дақиқа", timedelta(minutes=5)),
+        "30m": ("30 дақиқа", timedelta(minutes=30)),
+        "1h": ("1 соат", timedelta(hours=1)),
+        "6h": ("6 соат", timedelta(hours=6)),
+        "1d": ("1 кун", timedelta(days=1)),
+        "7d": ("7 кун", timedelta(days=7))
+    }
+    
+    time_str, mute_time = mute_times.get(time_key, ("1 соат", timedelta(hours=1)))
     muted_until = datetime.now() + mute_time
     
     try:
-        await message.bot.restrict_chat_member(
-            chat_id=message.chat.id,
-            user_id=target_user.id,
+        await call.bot.restrict_chat_member(
+            chat_id=call.message.chat.id,
+            user_id=target_user_id,
             permissions=ChatPermissions(
                 can_send_messages=False,
                 can_send_media_messages=False,
@@ -239,24 +323,18 @@ async def mute_user(message: Message, command: CommandObject):
         cursor.execute('''
         INSERT INTO mutes (user_id, group_id, muted_until, muted_by, reason)
         VALUES (?, ?, ?, ?, ?)
-        ''', (target_user.id, message.chat.id, muted_until, message.from_user.id, reason))
+        ''', (target_user_id, call.message.chat.id, muted_until, call.from_user.id, reason))
         conn.commit()
         conn.close()
         
-        time_str = ""
-        if mute_time.days > 0:
-            time_str = f"{mute_time.days} кун"
-        else:
-            hours = mute_time.seconds // 3600
-            minutes = (mute_time.seconds % 3600) // 60
-            if hours > 0:
-                time_str = f"{hours} соат"
-            else:
-                time_str = f"{minutes} дақиқа"
+        await call.message.edit_text(
+            f"🔇 <b>{target_user_name}</b> {time_str} муддатга овозсизланди!\n🗒 Сабаб: {reason}"
+        )
         
-        await message.reply(TEXTS["mute_success"].format(user=target_user.full_name, time=time_str))
     except Exception as e:
-        await message.reply(TEXTS["mute_error"])
+        await call.message.edit_text(TEXTS["mute_error"])
+    
+    await state.clear()
 
 # ==============================
 # 🔘 Овозини қайтариш
@@ -577,7 +655,7 @@ async def list_admins(message: Message):
     await message.reply(TEXTS["admin_list"].format(admins=admins_text))
 
 # ==============================
-# 🔘 Хабар тарқатиш
+# 🔘 Хабар тарқатиш (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 # ==============================
 @router.message(Command("broadcast"))
 async def broadcast_message(message: Message, command: CommandObject):
@@ -590,19 +668,63 @@ async def broadcast_message(message: Message, command: CommandObject):
         await message.reply(TEXTS["syntax_error"].format(syntax="/broadcast [матн]"))
         return
     
-    # Бу ерда барча гуруҳлар рўйхати бўлиши керак
-    # Ҳозирча фақат жорий гуруҳга юборамиз
-    try:
-        await message.bot.send_message(
-            chat_id=message.chat.id,
-            text=command.args
-        )
-        await message.reply(TEXTS["broadcast_success"].format(count=1))
-    except Exception as e:
-        await message.reply(TEXTS["broadcast_error"])
+    # Получаем список всех групп из базы данных
+    from data.db import get_all_groups
+    all_groups = get_all_groups()
+    
+    if not all_groups:
+        await message.reply("❌ Нет групп для рассылки")
+        return
+    
+    success_count = 0
+    error_count = 0
+    
+    # Рассылаем сообщение во все группы
+    for group_id in all_groups:
+        try:
+            await message.bot.send_message(
+                chat_id=group_id,
+                text=command.args
+            )
+            success_count += 1
+        except Exception as e:
+            error_count += 1
+            print(f"Ошибка отправки в группу {group_id}: {e}")
+    
+    await message.reply(TEXTS["broadcast_success"].format(count=success_count))
 
 # ==============================
-# 🔘 Ёрдам маълумотлари
+# ==============================
+# 🔘 Команда /admin
+# ==============================
+@router.message(Command("admin"))
+async def admin_command(message: Message):
+    """Админ панелини кўрсатиш"""
+    if not await is_group_admin(message.bot, message.chat.id, message.from_user.id):
+        await message.reply(TEXTS["no_permission"])
+        return
+    
+    # Админ панелини кўрсатиш
+    text = "👑 <b>Гуруҳ администратор панели</b>\n\n" \
+           "🛠 <b>Мўлжалланган командалар:</b>\n" \
+           "• /ban - Фойдаланувчини бан қилиш\n" \
+           "• /kick - Фойдаланувчини чиқариш\n" \
+           "• /mute - Фойдаланувчини овозсизлантириш\n" \
+           "• /unmute - Овозини қайтариш\n" \
+           "• /del - Хабарни ўчириш\n" \
+           "• /note - Эслатма қўшиш\n" \
+           "• /delnote - Эслатмани ўчириш\n" \
+           "• /notes - Эслатмаларни кўрсатиш\n" \
+           "• /addadmin - Администратор қўшиш\n" \
+           "• /removeadmin - Администраторни олиб ташлаш\n" \
+           "• /admins - Администраторлар рўйхати\n" \
+           "• /broadcast - Хабар тарқатиш\n" \
+           "• /help - Ёрдам маълумотлари"
+    
+    await message.reply(text)
+
+# ==============================
+# 🔘 Улучшенная команда /help
 # ==============================
 @router.message(Command("help"))
 async def help_command(message: Message):
@@ -611,21 +733,23 @@ async def help_command(message: Message):
 🤖 <b>Бот Ёрдам Маълумотлари:</b>
 
 👮 <b>Модерация:</b>
-• /ban - Фойдаланувчини бан қилиш
-• /kick - Фойдаланувчини чиқариб юбориш
-• /mute - Фойдаланувчини овозсизлантириш
-• /unmute - Фойдаланувчи овозини қайтариш
-• /del - Хабарни ўчириш
+• /ban [сабаб] - Фойдаланувчини бан қилиш (жавобан)
+• /kick [сабаб] - Фойдаланувчини чиқариб юбориш (жавобан)
+• /mute [вақт] [сабаб] - Фойдаланувчини овозсизлантириш (жавобан)
+• /unmute - Фойдаланувчи овозини қайтариш (жавобан)
+• /del - Хабарни ўчириш (жавобан)
 
 📝 <b>Эслатмалар:</b>
 • /note [триггер] [матн] - Янги эслатма қўшиш
 • /delnote [ID] - Эслатмани ўчириш
 • /notes - Барча эслатмаларни кўрсатиш
+• !триггер - Эслатмани чақириш
 
 👑 <b>Администраторлар:</b>
-• /addadmin - Администратор қўшиш
-• /removeadmin - Администраторни олиб ташлаш
+• /addadmin - Администратор қўшиш (жавобан)
+• /removeadmin - Администраторни олиб ташлаш (жавобан)
 • /admins - Администраторлар рўйхати
+• /admin - Админ панелини кўрсатиш
 
 📢 <b>Бошқа:</b>
 • /broadcast [матн] - Хабар тарқатиш
