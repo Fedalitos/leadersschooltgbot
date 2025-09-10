@@ -420,3 +420,22 @@ def hide_review(review_id: int):
     conn.close()
     
     print(f"✅ Отзыв скрыт: ID {review_id}")
+    
+def get_all_groups():
+    """Барча гуруҳлар рўйхатини олиш"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Ариза берилган барча фойдаланувчиларнинг гуруҳлари
+    cursor.execute('SELECT DISTINCT user_id FROM applications')
+    applications_users = [row[0] for row in cursor.fetchall()]
+    
+    # Савол берилган барча фойдаланувчиларнинг гуруҳлари
+    cursor.execute('SELECT DISTINCT user_id FROM questions')
+    questions_users = [row[0] for row in cursor.fetchall()]
+    
+    # Барча фойдаланувчилар
+    all_users = list(set(applications_users + questions_users))
+    
+    conn.close()
+    return all_users

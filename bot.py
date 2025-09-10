@@ -44,6 +44,7 @@ async def main():
     from handlers.contacts import router as contacts_router
     from handlers.language import router as language_router
     from handlers.question import router as question_router
+    from handlers.group_moderation import router as group_moderation_router
 
     dp.include_router(admin_router)
     dp.include_router(question_router)
@@ -54,6 +55,7 @@ async def main():
     dp.include_router(reviews_router)
     dp.include_router(contacts_router)
     dp.include_router(language_router)
+    dp.include_router(group_moderation_router)
 
     # 🔹 Инициализация БД
     from data.db import init_db
