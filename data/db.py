@@ -13,14 +13,6 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Проверяем и обновляем таблицу отзывов если нужно
-    cursor.execute("PRAGMA table_info(reviews)")
-    columns = [column[1] for column in cursor.fetchall()]
-
-    if 'is_visible' not in columns:
-        cursor.execute('ALTER TABLE reviews ADD COLUMN is_visible BOOLEAN DEFAULT TRUE')
-        print("✅ Столбец is_visible добавлен в таблицу reviews")
-    
     # Таблица заявок
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS applications (
