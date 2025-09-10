@@ -166,39 +166,6 @@ async def process_admin_answer(message: Message, state: FSMContext):
             await message.answer(f"❌ Ошибка отправки: {e}")
         
         await state.clear()
-        
-
-# admin.py - добавление функции уведомления о новых заявках
-# ==============================
-# 🔘 Уведомления администраторов о новых заявках
-# ==============================
-async def notify_admins_new_application(bot, application_id, user_info):
-    """Уведомление админов о новой заявке в группу"""
-    admin_text = f"🆕 <b>✨ НОВАЯ ЗАЯВКА НА КУРС ✨</b>\n\n" \
-                 f"👤 <b>ФИО:</b> {user_info['full_name']}\n" \
-                 f"📚 <b>Курс:</b> {user_info['course']}\n" \
-                 f"📱 <b>Телефон:</b> {user_info['phone']}\n" \
-                 f"📋 <b>Номер заявки:</b> #{application_id}"
-    
-    try:
-        # Отправляем в группу админов
-        await bot.send_message(
-            chat_id=ADMIN_GROUP_ID,
-            text=admin_text,
-            reply_markup=admin_approve_buttons(user_info['user_id'], application_id, user_info.get('username', ''))
-        )
-    except Exception as e:
-        print(f"Ошибка отправки в группу: {e}")
-        # Резервная отправка всем админам
-        for admin_id in ADMINS:
-            try:
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text=admin_text,
-                    reply_markup=admin_approve_buttons(user_info['user_id'], application_id, user_info.get('username', ''))
-                )
-            except:
-                pass
 
 # Тексты для статистики
 stats_texts = {
@@ -412,72 +379,7 @@ async def admin_panel_actions(call: CallbackQuery):
         await call.message.answer(text)
         await call.answer()
         
-    elif data == "admin_refresh":
-        # Обновить панель
-        await call.message.delete()
-        await admin_panel_command(call.message)
-        await call.answer("🔄 Panel yangilandi")
-        
-    elif data == "admin_close":
-        # Закрыть панель
-        await call.message.delete()
-        await call.answer("✅ Panel yopildi")
-
-# ==============================
-# 🔘 Уведомления администраторов
-# ==============================
-async def notify_admins_new_application(bot, application_id, user_info):
-    """Уведомление админов о новой заявке"""
-    for admin_id in ADMINS:
-        try:
-            text = f"🔔 <b>Yangi ariza!</b>\n\n" \
-                   f"📋 Ariza №: {application_id}\n" \
-                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
-                   f"📚 Kurs: {user_info['course']}\n" \
-                   f"📞 Tel: {user_info['phone']}"
-            
-            await bot.send_message(admin_id, text)
-        except:
-            pass
-
-async def notify_admins_new_question(bot, question_id, user_info):
-    """Уведомление админов о новом вопросе"""
-    for admin_id in ADMINS:
-        try:
-            text = f"🔔 <b>Yangi savol!</b>\n\n" \
-                   f"📋 Savol №: {question_id}\n" \
-                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
-                   f"💬 Savol: {user_info['question_text'][:100]}..."
-            
-            await bot.send_message(admin_id, text)
-        except:
-            pass
-
-# ==============================
-# 🔘 Команда быстрого ответа
-# ==============================
-@router.message(Command("answer"))
-async def quick_answer_command(message: Message, state: FSMContext):
-    """Быстрый ответ на последний вопрос"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    await message.answer("💬 <b>Tezkor javob berish</b>\n\n" \
-                        "Quyidagi formatda yozing:\n" \
-                        "<code>/answer [savol_id] [javob matni]</code>\n\n" \
-                        "Misol: <code>/answer 15 Salom, sizning savolingizga javob...</code>")
-    
-# Fikr-mulohazalar uchun yangi ishlovchilarni qo'shamiz
-@router.callback_query(lambda c: c.data.startswith("admin_reviews"))
-async def admin_reviews_actions(call: CallbackQuery):
-    if not is_admin(call.from_user.id):
-        lang = user_languages.get(call.from_user.id, "uz")
-        await call.answer(response_texts[lang]["not_admin"], show_alert=True)
-        return
-    
-    data = call.data
-    
-    if data == "admin_reviews":
+    elif data == "admin_reviews":
         # Fikr-mulohazalar statistikasi
         from data.db import get_review_stats
         stats = get_review_stats()
@@ -518,33 +420,57 @@ async def admin_reviews_actions(call: CallbackQuery):
             
             await call.message.answer(text)
     
-    await call.answer()
-
-# admin_panel_actions ga yangi tugmalarni qo'shamiz
-@router.callback_query(lambda c: c.data.startswith("admin_"))
-async def admin_panel_actions(call: CallbackQuery):
-    if not is_admin(call.from_user.id):
-        await call.answer("⛔ Sizda admin huquqlari yo'q!")
-        return
-    
-    data = call.data
-    
-    # ... mavjud ishlovchilar ...
-
-    if data == "admin_reviews":
-        # Fikr-mulohazalar ishlovchisiga yo'naltiramiz
-        await admin_reviews_actions(call)
-
     elif data == "admin_notifications":
         # Bildirishnomalarni boshqarish
         text = "🔔 <b>Bildirishnomalarni boshqarish</b>\n\n" \
                "Yangi ariza va savollar haqida bildirishnoma olishni sozlashingiz mumkin."
         await call.message.answer(text)
-
+        
     elif data == "admin_settings":
         # Bot sozlamalari
         text = "⚙️ <b>Bot sozlamalari</b>\n\n" \
                "Bu yerda botning turli parametrlarini sozlashingiz mumkin."
         await call.message.answer(text)
+        
+    elif data == "admin_refresh":
+        # Обновить панель
+        await call.message.delete()
+        await admin_panel_command(call.message)
+        await call.answer("🔄 Panel yangilandi")
+        
+    elif data == "admin_close":
+        # Закрыть панель
+        await call.message.delete()
+        await call.answer("✅ Panel yopildi")
 
     await call.answer()
+
+# ==============================
+# 🔘 Уведомления администраторов
+# ==============================
+async def notify_admins_new_application(bot, application_id, user_info):
+    """Уведомление админов о новой заявке"""
+    for admin_id in ADMINS:
+        try:
+            text = f"🔔 <b>Yangi ariza!</b>\n\n" \
+                   f"📋 Ariza №: {application_id}\n" \
+                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
+                   f"📚 Kurs: {user_info['course']}\n" \
+                   f"📞 Tel: {user_info['phone']}"
+            
+            await bot.send_message(admin_id, text)
+        except:
+            pass
+
+async def notify_admins_new_question(bot, question_id, user_info):
+    """Уведомление админов о новом вопросе"""
+    for admin_id in ADMINS:
+        try:
+            text = f"🔔 <b>Yangi savol!</b>\n\n" \
+                   f"📋 Savol №: {question_id}\n" \
+                   f"👤 Foydalanuvchi: {user_info['full_name']}\n" \
+                   f"💬 Savol: {user_info['question_text'][:100]}..."
+            
+            await bot.send_message(admin_id, text)
+        except:
+            pass
