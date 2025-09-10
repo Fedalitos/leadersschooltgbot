@@ -9,6 +9,14 @@ import os
 DB_PATH = "applications.db"
 
 def init_db():
+        # Проверяем и обновляем таблицу отзывов если нужно
+    cursor.execute("PRAGMA table_info(reviews)")
+    columns = [column[1] for column in cursor.fetchall()]
+
+    if 'is_visible' not in columns:
+        cursor.execute('ALTER TABLE reviews ADD COLUMN is_visible BOOLEAN DEFAULT TRUE')
+    print("✅ Столбец is_visible добавлен в таблицу reviews")
+    
     """Ma'lumotlar bazasini ishga tushirish"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -57,17 +65,9 @@ def init_db():
     )
     ''')
     
-# Проверяем и обновляем таблицу отзывов если нужно
-cursor.execute("PRAGMA table_info(reviews)")
-columns = [column[1] for column in cursor.fetchall()]
-
-if 'is_visible' not in columns:
-    cursor.execute('ALTER TABLE reviews ADD COLUMN is_visible BOOLEAN DEFAULT TRUE')
-    print("✅ Столбец is_visible добавлен в таблицу reviews")
-
-conn.commit()
-conn.close()
-print("✅ Ma'lumotlar bazasi ishga tushirildi")
+    conn.commit()
+    conn.close()
+    print("✅ Ma'lumotlar bazasi ishga tushirildi")
 
 def get_connection():
     """Baza bilan bog'lanishni olish"""
