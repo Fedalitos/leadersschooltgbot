@@ -13,7 +13,7 @@ from data.languages import user_languages
 from data.admins import is_admin, ADMINS
 from keyboards.admin_buttons import admin_panel_buttons
 from data.db import get_pending_applications_count, get_pending_questions_count, get_recent_applications, get_recent_questions
-from handlers.broadcast import admin_panel_buttons  # Перезаписываем функцию
+from keyboards.admin_buttons import admin_panel_buttons
 
 router = Router()
 

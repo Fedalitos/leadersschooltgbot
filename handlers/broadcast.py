@@ -320,28 +320,3 @@ def get_broadcast_stats():
     return stats
 
 # ==============================
-# 🔘 Добавляем кнопку рассылки в админ-панель
-# ==============================
-def admin_panel_buttons():
-    """Обновленная админ-панель с кнопкой рассылки"""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
-            InlineKeyboardButton(text="📝 Arizalar", callback_data="admin_pending_apps")
-        ],
-        [
-            InlineKeyboardButton(text="❓ Savollar", callback_data="admin_pending_questions"),
-            InlineKeyboardButton(text="⭐ Fikrlar", callback_data="admin_reviews")
-        ],
-        [
-            InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin_users"),
-            InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast")
-        ],
-        [
-            InlineKeyboardButton(text="🔄 Yangilash", callback_data="admin_refresh"),
-            InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin_settings")
-        ],
-        [
-            InlineKeyboardButton(text="✖️ Yopish", callback_data="admin_close")
-        ]
-    ])

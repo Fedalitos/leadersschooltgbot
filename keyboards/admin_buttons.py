@@ -39,8 +39,10 @@ def admin_question_buttons(user_id: int, question_id: int, username: str = ""):
         ]
     ])
 
+# 🔘 Добавляем кнопку рассылки в админ-панель
+# ==============================
 def admin_panel_buttons():
-    """Yangi funksiyalar bilan chiroyli admin-panel tugmalari"""
+    """Обновленная админ-панель с кнопкой рассылки"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
@@ -52,7 +54,7 @@ def admin_panel_buttons():
         ],
         [
             InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin_users"),
-            InlineKeyboardButton(text="🔔 Bildirishnomalar", callback_data="admin_notifications")
+            InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast")
         ],
         [
             InlineKeyboardButton(text="🔄 Yangilash", callback_data="admin_refresh"),
@@ -102,3 +104,4 @@ def broadcast_confirmation_buttons():
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_broadcast")
         ]
     ])
+    
