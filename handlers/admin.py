@@ -443,6 +443,12 @@ async def admin_panel_actions(call: CallbackQuery):
         # Закрыть панель
         await call.message.delete()
         await call.answer("✅ Panel yopildi")
+# 🔘 Обработка кнопки рассылки
+# ==============================
+    elif data == "admin_broadcast":
+    # Перенаправляем на модуль рассылки
+      from handlers.broadcast import broadcast_menu
+    await broadcast_menu(call)
 
     await call.answer()
 
