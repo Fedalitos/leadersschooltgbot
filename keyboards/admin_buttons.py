@@ -75,3 +75,30 @@ def admin_review_buttons(review_id: int):
             InlineKeyboardButton(text="📋 Ro'yxat", callback_data="admin_reviews_list")
         ]
     ])
+    
+# admin_buttons.py - добавляем кнопки для рассылки
+
+def admin_broadcast_buttons():
+    """Кнопки для управления рассылкой"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📢 Рассылка по группам", callback_data="broadcast_groups"),
+            InlineKeyboardButton(text="👥 Рассылка пользователям", callback_data="broadcast_users")
+        ],
+        [
+            InlineKeyboardButton(text="📝 Создать рассылку", callback_data="create_broadcast"),
+            InlineKeyboardButton(text="📊 Статистика рассылок", callback_data="broadcast_stats")
+        ],
+        [
+            InlineKeyboardButton(text="🏠 Назад", callback_data="admin_back")
+        ]
+    ])
+
+def broadcast_confirmation_buttons():
+    """Кнопки подтверждения рассылки"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Начать рассылку", callback_data="confirm_broadcast"),
+            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_broadcast")
+        ]
+    ])
