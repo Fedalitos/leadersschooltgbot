@@ -4,7 +4,6 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.client.session.aiohttp import AiohttpSession
 from aiohttp import web
 from storage import storage
 
@@ -18,13 +17,10 @@ logger = logging.getLogger(__name__)
 # 🔹 Bot token
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Создаем кастомную сессию с увеличенными таймаутами
-session = AiohttpSession(timeout=300.0)
-
-# Создаем бота с кастомной сессией
+# ❌ убираем кастомный AiohttpSession
+# ✅ создаем бота напрямую
 bot = Bot(
     token=TOKEN,
-    session=session,
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
@@ -94,7 +90,7 @@ async def main():
         print("✅ Bot ishga tushdi...")
         
         # Добавляем задержку перед запуском бота
-        await asyncio.sleep(10)
+        await asyncio.sleep(5)
         
         max_retries = 15
         retry_delay = 10
