@@ -1,9 +1,9 @@
 # ============================================
-# 🔹 handlers/broadcast.py — система рассылок
+# 🔹 handlers/broadcast.py — система рассылок (ИСПРАВЛЕННАЯ)
 # ============================================
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InputMediaPhoto
+from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -13,6 +13,9 @@ from data.admins import is_admin
 from keyboards.admin_buttons import admin_broadcast_buttons, broadcast_confirmation_buttons
 from data.languages import user_languages
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import asyncio
+# Add this import at the top of your file
+from aiogram.types import Command
 
 router = Router()
 
@@ -62,7 +65,7 @@ async def broadcast_menu(call: CallbackQuery):
         return
     
     lang = user_languages.get(call.from_user.id, "ru")
-    await call.message.answer(broadcast_texts[lang]["menu"], reply_markup=admin_broadcast_buttons())
+    await call.message.edit_text(broadcast_texts[lang]["menu"], reply_markup=admin_broadcast_buttons())
     await call.answer()
 
 # ==============================
@@ -86,7 +89,7 @@ async def start_broadcast_creation(call: CallbackQuery, state: FSMContext):
     await state.update_data(broadcast_type=broadcast_type)
     
     lang = user_languages.get(call.from_user.id, "ru")
-    await call.message.answer(broadcast_texts[lang]["input_text"])
+    await call.message.edit_text(broadcast_texts[lang]["input_text"])
     await state.set_state(BroadcastStates.waiting_for_broadcast_text)
     await call.answer()
 
@@ -171,18 +174,11 @@ async def confirm_broadcast(call: CallbackQuery, state: FSMContext):
         
         for i, (recipient_id, recipient_type) in enumerate(recipients, 1):
             try:
-                if recipient_type == 'group':
-                    await call.bot.send_message(
-                        chat_id=recipient_id,
-                        text=text,
-                        parse_mode="HTML"
-                    )
-                else:
-                    await call.bot.send_message(
-                        chat_id=recipient_id,
-                        text=text,
-                        parse_mode="HTML"
-                    )
+                await call.bot.send_message(
+                    chat_id=recipient_id,
+                    text=text,
+                    parse_mode="HTML"
+                )
                 success += 1
             except Exception as e:
                 failed += 1
@@ -191,11 +187,17 @@ async def confirm_broadcast(call: CallbackQuery, state: FSMContext):
             # Обновляем прогресс каждые 10 сообщений или в конце
             if i % 10 == 0 or i == total:
                 percentage = (i / total) * 100
-                await progress_message.edit_text(
-                    broadcast_texts[lang]["progress"].format(
-                        success=success, total=total, percentage=int(percentage)
+                try:
+                    await progress_message.edit_text(
+                        broadcast_texts[lang]["progress"].format(
+                            success=success, total=total, percentage=int(percentage)
+                        )
                     )
-                )
+                except:
+                    pass
+            
+            # Небольшая задержка чтобы не превысить лимиты Telegram
+            await asyncio.sleep(0.1)
         
         # Завершаем рассылку
         await progress_message.edit_text(
@@ -235,7 +237,7 @@ async def show_broadcast_stats(call: CallbackQuery):
     text += "📈 <b>Последние 5 рассылок:</b>\n\n"
     
     for broadcast in stats['recent_broadcasts']:
-        text += f"• {broadcast['date']}: {broadcast['success']}/{broadcast['total']}\n"
+        text += f"• {broadcast['date']}: {broadcast['success']}/{broadcast['total']} успешных\n"
     
     await call.message.answer(text)
     await call.answer()
@@ -320,3 +322,81 @@ def get_broadcast_stats():
     return stats
 
 # ==============================
+# 🔘 Команда для прямой рассылки
+# ==============================
+@router.message(Command("broadcast"))
+async def direct_broadcast_command(message: Message, state: FSMContext):
+    """Прямая команда для рассылки"""
+    if not is_admin(message.from_user.id):
+        lang = user_languages.get(message.from_user.id, "uz")
+        await message.answer(broadcast_texts[lang]["not_admin"])
+        return
+    
+    # Проверяем есть ли текст после команды
+    if not message.text or len(message.text.split()) < 2:
+        await message.answer("❌ <b>Использование:</b> /broadcast [текст сообщения]")
+        return
+    
+    # Извлекаем текст сообщения (убираем команду)
+    broadcast_text = message.text.split(' ', 1)[1]
+    
+    # Получаем всех получателей
+    recipients = []
+    groups = get_all_groups()
+    users = get_all_users()
+    
+    recipients.extend([(chat_id, 'group') for chat_id in groups])
+    recipients.extend([(user_id, 'user') for user_id in users])
+    
+    if not recipients:
+        await message.answer("❌ Нет получателей для рассылки!")
+        return
+    
+    total = len(recipients)
+    success = 0
+    failed = 0
+    
+    # Отправляем сообщение о начале рассылки
+    progress_message = await message.answer(f"🚀 <b>Начинаю рассылку...</b>\n\nПолучателей: {total}")
+    
+    # Запускаем рассылку
+    for i, (recipient_id, recipient_type) in enumerate(recipients, 1):
+        try:
+            await message.bot.send_message(
+                chat_id=recipient_id,
+                text=broadcast_text,
+                parse_mode="HTML"
+            )
+            success += 1
+        except Exception as e:
+            failed += 1
+            print(f"Ошибка отправки {recipient_type} {recipient_id}: {e}")
+        
+        # Обновляем прогресс каждые 10 сообщений
+        if i % 10 == 0 or i == total:
+            percentage = (i / total) * 100
+            try:
+                await progress_message.edit_text(
+                    f"📊 <b>Прогресс рассылки:</b>\n\n"
+                    f"• Отправлено: {i}/{total}\n"
+                    f"• Успешно: {success}\n"
+                    f"• Ошибок: {failed}\n"
+                    f"• Завершено: {int(percentage)}%"
+                )
+            except:
+                pass
+        
+        # Небольшая задержка
+        await asyncio.sleep(0.1)
+    
+    # Завершаем рассылку
+    await progress_message.edit_text(
+        f"✅ <b>Рассылка завершена!</b>\n\n"
+        f"📊 <b>Результаты:</b>\n"
+        f"• Успешно: {success}\n"
+        f"• Ошибок: {failed}\n"
+        f"• Всего: {total}"
+    )
+    
+    # Сохраняем статистику
+    save_broadcast_stats(message.from_user.id, broadcast_text, success, failed, total)
