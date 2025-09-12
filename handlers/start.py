@@ -8,6 +8,8 @@ from keyboards.language_menu import language_menu
 from keyboards.main_menu import main_menu
 from data.languages import user_languages
 from data.admins import is_admin
+from data.db import save_application
+from data.db import get_connection  # Import get_connection
 
 router = Router()
 
@@ -21,6 +23,19 @@ async def start_command(message: types.Message):
     """
     text = "🌍 <b>Tilni tanlang / Выберите язык / Choose language:</b>"
     await message.answer(text, reply_markup=language_menu())
+    
+@router.message(Command("start"))
+async def start_cmd(message: types.Message):
+    user_id = message.from_user.id
+    full_name = message.from_user.full_name
+    # если хочешь просто регистрацию
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, full_name TEXT)")
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, full_name) VALUES (?, ?)", (user_id, full_name))
+    conn.commit()
+    conn.close()
+    await message.answer("✅ Вы зарегистрированы в системе бота")
 
 # ==============================
 # 🌍 /language buyrug'i — tilni o'zgartirish

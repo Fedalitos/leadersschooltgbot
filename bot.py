@@ -19,12 +19,7 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("BOT_TOKEN")
 
 # Создаем кастомную сессию с увеличенными таймаутами
-session = AiohttpSession(
-    timeout=90.0,
-    connect_timeout=90.0,
-    read_timeout=90.0,
-    write_timeout=90.0
-)
+session = AiohttpSession(timeout=90.0)
 
 # Создаем бота с кастомной сессией
 bot = Bot(
