@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiohttp import web
 from storage import storage
 
@@ -17,16 +18,19 @@ logger = logging.getLogger(__name__)
 # 🔹 Bot token
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Создаем бота с увеличенными таймаутами
+# Создаем кастомную сессию с увеличенными таймаутами
+session = AiohttpSession(
+    timeout=90.0,
+    connect_timeout=90.0,
+    read_timeout=90.0,
+    write_timeout=90.0
+)
+
+# Создаем бота с кастомной сессией
 bot = Bot(
     token=TOKEN,
-    default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML,
-        timeout=90.0,  # Увеличиваем таймаут до 90 секунд
-        connect_timeout=90.0,
-        read_timeout=90.0,
-        write_timeout=90.0
-    )
+    session=session,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
 dp = Dispatcher(storage=storage)
@@ -93,10 +97,10 @@ async def main():
         print("✅ Bot ishga tushdi...")
         
         # Добавляем задержку перед запуском бота
-        await asyncio.sleep(10)  # Увеличиваем задержку до 10 секунд
+        await asyncio.sleep(10)
         
-        max_retries = 15  # Увеличиваем количество попыток
-        retry_delay = 10  # Начинаем с 10 секунд
+        max_retries = 15
+        retry_delay = 10
         
         for attempt in range(max_retries):
             try:
@@ -110,11 +114,11 @@ async def main():
                     logger.warning(f"⚠️ Ошибка авторизации: {auth_error}")
                     raise
                 
-                # Запускаем polling с обработкой ошибок
+                # Запускаем polling
                 await dp.start_polling(
                     bot, 
                     allowed_updates=dp.resolve_used_update_types(),
-                    close_bot_session=False  # Не закрывать сессию бота при остановке
+                    close_bot_session=False
                 )
                 break
                 
@@ -122,13 +126,12 @@ async def main():
                 logger.warning(f"⚠️ Ошибка (попытка {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
                 
                 if attempt < max_retries - 1:
-                    current_delay = retry_delay * (2 ** attempt)  # Экспоненциальная задержка
-                    current_delay = min(current_delay, 300)  # Максимум 5 минут
+                    current_delay = retry_delay * (2 ** attempt)
+                    current_delay = min(current_delay, 300)
                     logger.info(f"⏳ Повторная попытка через {current_delay} секунд...")
                     await asyncio.sleep(current_delay)
                 else:
                     logger.error("❌ Не удалось подключиться после всех попыток")
-                    # Продолжаем работать с HTTP сервером для health checks
                     logger.info("🌐 HTTP сервер продолжает работать для health checks")
                     
     except Exception as critical_error:
