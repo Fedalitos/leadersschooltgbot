@@ -1,5 +1,6 @@
 # admin_buttons.py - yangi funksiyalar bilan takomillashtirilgan versiya
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 def admin_approve_buttons(user_id: int, application_id: int, username: str = ""):
     """Profil havolasi bilan chiroyli ariza tugmalari"""
@@ -81,27 +82,20 @@ def admin_review_buttons(review_id: int):
 # admin_buttons.py - добавляем кнопки для рассылки
 
 def admin_broadcast_buttons():
-    """Кнопки для управления рассылкой"""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📢 Рассылка по группам", callback_data="broadcast_groups"),
-            InlineKeyboardButton(text="👥 Рассылка пользователям", callback_data="broadcast_users")
-        ],
-        [
-            InlineKeyboardButton(text="📝 Создать рассылку", callback_data="create_broadcast"),
-            InlineKeyboardButton(text="📊 Статистика рассылок", callback_data="broadcast_stats")
-        ],
-        [
-            InlineKeyboardButton(text="🏠 Назад", callback_data="admin_back")
-        ]
-    ])
+    """Клавиатура для управления рассылками"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📢 Рассылка группам", callback_data="broadcast_groups")
+    builder.button(text="👤 Рассылка пользователям", callback_data="broadcast_users")
+    builder.button(text="🌐 Всем получателям", callback_data="create_broadcast")
+    builder.button(text="📊 Статистика рассылок", callback_data="broadcast_stats")
+    builder.button(text="🔙 Назад", callback_data="admin_back")
+    builder.adjust(1)
+    return builder.as_markup()
 
 def broadcast_confirmation_buttons():
-    """Кнопки подтверждения рассылки"""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Начать рассылку", callback_data="confirm_broadcast"),
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_broadcast")
-        ]
-    ])
-    
+    """Клавиатура для подтверждения рассылки"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Подтвердить рассылку", callback_data="confirm_broadcast")
+    builder.button(text="❌ Отменить", callback_data="cancel_broadcast")
+    builder.adjust(1)
+    return builder.as_markup()

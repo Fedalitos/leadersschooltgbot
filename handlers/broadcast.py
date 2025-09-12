@@ -14,7 +14,6 @@ from keyboards.admin_buttons import admin_broadcast_buttons, broadcast_confirmat
 from data.languages import user_languages
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import asyncio
-# Add this import at the top of your file
 from aiogram.filters import Command
 
 router = Router()
@@ -85,11 +84,13 @@ async def start_broadcast_creation(call: CallbackQuery, state: FSMContext):
         broadcast_type = "groups"
     elif call.data == "broadcast_users":
         broadcast_type = "users"
+    elif call.data == "create_broadcast":
+        broadcast_type = "all"
     
     await state.update_data(broadcast_type=broadcast_type)
     
     lang = user_languages.get(call.from_user.id, "ru")
-    await call.message.edit_text(broadcast_texts[lang]["input_text"])
+    await call.message.answer(broadcast_texts[lang]["input_text"])
     await state.set_state(BroadcastStates.waiting_for_broadcast_text)
     await call.answer()
 
