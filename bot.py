@@ -1,13 +1,31 @@
 import os
 import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiohttp import web
 from storage import storage
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # 🔹 Bot token
 TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+
+# Создаем бота с увеличенными таймаутами
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(
+        parse_mode=ParseMode.HTML,
+        timeout=60.0,  # Увеличиваем таймаут до 60 секунд
+        connect_timeout=60.0,
+        read_timeout=60.0,
+        write_timeout=60.0
+    )
+)
+
 dp = Dispatcher(storage=storage)
 
 # 🔹 HTTP сервер для health checks
@@ -70,11 +88,34 @@ async def main():
 
     print("✅ Bot ishga tushdi...")
     
-    try:
-        await dp.start_polling(bot)
-    finally:
+    # Добавляем задержку перед запуском бота
+    await asyncio.sleep(5)
+    
+    max_retries = 10
+    retry_delay = 5
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"🔄 Попытка запуска бота #{attempt + 1}")
+            await dp.start_polling(bot)
+            break
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка (попытка {attempt + 1}/{max_retries}): {e}")
+            
+            if attempt < max_retries - 1:
+                logger.info(f"⏳ Повторная попытка через {retry_delay} секунд...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Экспоненциальная задержка
+            else:
+                logger.error("❌ Не удалось подключиться после всех попыток")
+                # Не завершаем приложение, продолжаем работать с HTTP сервером
+                while True:
+                    await asyncio.sleep(3600)  # Спим час и продолжаем
+                    
+        finally:
         # Корректное завершение
-        await http_runner.cleanup()
+            await http_runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())
