@@ -15,7 +15,7 @@ from data.languages import user_languages
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import asyncio
 # Add this import at the top of your file
-from aiogram.types import Command
+from aiogram.filters import Command
 
 router = Router()
 
