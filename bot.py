@@ -17,13 +17,11 @@ TOKEN = os.getenv("BOT_TOKEN")
 # Создаем бота с увеличенными таймаутами
 bot = Bot(
     token=TOKEN,
-    default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML,
-        timeout=60.0,  # Увеличиваем таймаут до 60 секунд
-        connect_timeout=60.0,
-        read_timeout=60.0,
-        write_timeout=60.0
-    )
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    timeout=60.0,  # Увеличиваем таймаут до 60 секунд
+    connect_timeout=60.0,
+    read_timeout=60.0,
+    write_timeout=60.0
 )
 
 dp = Dispatcher(storage=storage)
